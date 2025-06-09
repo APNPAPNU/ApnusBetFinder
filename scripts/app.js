@@ -55,7 +55,6 @@ async function fetchAndDisplay(sport) {
       Object.values(body).forEach(game => {
         const game_base = {
           game_id: game.game_id || "",
-          game_date: game.game_date || "",
           game_name: game.game_name || "",
           sport: game.sport || sp,
           league: game.league || "",
