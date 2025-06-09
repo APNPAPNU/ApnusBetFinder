@@ -1,26 +1,151 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Apnus Bet Finder</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apnus Bet Finder - Live Baseball Bets</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
+
+  <style>
+    /* Reset and base styles */
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      background: #f5f7fa;
+      color: #333;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto 4rem;
+      padding: 0 1rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 6px 15px rgb(0 0 0 / 0.1);
+    }
+    h1 {
+      text-align: center;
+      font-weight: 600;
+      color: #222;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.03em;
+    }
+
+    /* DataTables tweaks */
+    table.dataTable {
+      width: 100% !important;
+      border-collapse: separate !important;
+      border-spacing: 0 0.7em;
+    }
+    table.dataTable thead tr {
+      background-color: #4a90e2;
+      color: white;
+      border-radius: 6px;
+    }
+    table.dataTable thead th {
+      padding: 12px 15px;
+      font-weight: 600;
+      border: none !important;
+    }
+    table.dataTable tbody tr {
+      background: #fafafa;
+      transition: background-color 0.3s ease;
+      cursor: default;
+    }
+    table.dataTable tbody tr:hover {
+      background-color: #e1eaff;
+    }
+    table.dataTable tbody td {
+      padding: 12px 15px;
+    }
+    /* Search input styling */
+    .dataTables_filter input {
+      border-radius: 20px;
+      border: 1.5px solid #ccc;
+      padding: 7px 14px;
+      width: 250px;
+      font-size: 1rem;
+      transition: border-color 0.3s ease;
+    }
+    .dataTables_filter input:focus {
+      outline: none;
+      border-color: #4a90e2;
+      box-shadow: 0 0 6px #4a90e2aa;
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 768px) {
+      .container {
+        margin: 1rem;
+      }
+      .dataTables_filter input {
+        width: 100%;
+      }
+    }
+
+    footer {
+      text-align: center;
+      padding: 1rem 0;
+      font-size: 0.9rem;
+      color: #666;
+    }
+  </style>
+
+  <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
+  <!-- PapaParse -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <!-- DataTables JS -->
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
 </head>
 <body>
-  <h1>Live Baseball Bets</h1>
-  <table id="betsTable" class="display" style="width:100%"></table>
+  <div class="container">
+    <h1>Live Baseball Bets</h1>
+    <table id="betsTable" class="display" style="width:100%"></table>
+  </div>
+
+  <footer>
+    &copy; 2025 Apnus Bet Finder &mdash; Data updates automatically
+  </footer>
 
   <script>
     Papa.parse("data/prematch.csv", {
       download: true,
       header: true,
       complete: function(results) {
-        const columns = Object.keys(results.data[0]).map(col => ({ title: col, data: col }));
+        // Filter out empty rows (if any)
+        const data = results.data.filter(row => Object.values(row).some(v => v !== ""));
+
+        if (data.length === 0) {
+          $('#betsTable').html("<tr><td>No data available.</td></tr>");
+          return;
+        }
+
+        const columns = Object.keys(data[0]).map(col => ({ title: col.replace(/_/g, " ").toUpperCase(), data: col }));
+
         $('#betsTable').DataTable({
-          data: results.data,
-          columns: columns
+          data: data,
+          columns: columns,
+          pageLength: 15,
+          lengthMenu: [10, 15, 25, 50],
+          order: [[1, 'desc']], // Sort by game_date descending (adjust if necessary)
+          language: {
+            searchPlaceholder: "Search bets...",
+            search: "",
+            emptyTable: "No betting data found",
+          },
+          columnDefs: [
+            { targets: '_all', className: 'dt-body-left' }
+          ]
         });
+      },
+      error: function(err) {
+        $('#betsTable').html("<tr><td>Error loading data.</td></tr>");
       }
     });
   </script>
