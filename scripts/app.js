@@ -1,4 +1,4 @@
-onst SPORTS = ["all", "baseball", "basketball", "football", "soccer", "hockey", "golf"];
+const SPORTS = ["all", "baseball", "basketball", "football", "soccer", "hockey", "golf"];
 const API_BASE = "https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getLiveGames?live=false";
 
 let currentSport = "all"; // Track current selected sport
