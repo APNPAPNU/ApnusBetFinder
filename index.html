@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Apnus Bet Finder - Live Bets</title>
+  <title>Apnus Bet Finder – Live Bets</title>
 
-  <!-- Google Fonts -->
+  <!-- Google Font: Inter -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
 
   <!-- DataTables CSS -->
@@ -50,7 +50,7 @@
       font-size: 1rem;
       border-radius: 25px;
       cursor: pointer;
-      transition: background-color 0.3s ease, color 0.3s ease;
+      transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
       user-select: none;
     }
     .filter-btn:hover {
@@ -104,6 +104,7 @@
       border-color: #4a90e2;
       box-shadow: 0 0 6px #4a90e2aa;
     }
+
     @media (max-width: 768px) {
       .container {
         margin: 1rem;
@@ -116,6 +117,7 @@
         margin: 4px 4px 10px 4px;
       }
     }
+
     footer {
       text-align: center;
       padding: 1rem 0;
@@ -123,6 +125,19 @@
       color: #666;
     }
   </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Live Bets by Sport</h1>
+
+    <div class="button-bar"></div>
+
+    <table id="betsTable" class="display" style="width:100%"></table>
+  </div>
+
+  <footer>
+    &copy; 2025 Apnus Bet Finder &mdash; Data updates on demand
+  </footer>
 
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -130,91 +145,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
   <!-- DataTables JS -->
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-</head>
-<body>
-  <div class="container">
-    <h1>Live Bets by Sport</h1>
-
-    <div class="button-bar">
-      <button class="filter-btn active" data-sport="">All Sports</button>
-      <button class="filter-btn" data-sport="baseball">Baseball</button>
-      <button class="filter-btn" data-sport="basketball">Basketball</button>
-      <button class="filter-btn" data-sport="football">Football</button>
-      <button class="filter-btn" data-sport="soccer">Soccer</button>
-      <button class="filter-btn" data-sport="nhl">NHL</button>
-    </div>
-
-    <table id="betsTable" class="display" style="width:100%"></table>
-  </div>
-
-  <footer>
-    &copy; 2025 Apnus Bet Finder &mdash; Data updates automatically
-  </footer>
-
-  <script>
-    let dataTable;
-
-    function updateActiveButton(selectedBtn) {
-      $('.filter-btn').removeClass('active');
-      $(selectedBtn).addClass('active');
-    }
-
-    Papa.parse("data/prematch.csv", {
-      download: true,
-      header: true,
-      complete: function(results) {
-        const data = results.data.filter(row => Object.values(row).some(v => v !== ""));
-
-        if (data.length === 0) {
-          $('#betsTable').html("<tr><td>No data available.</td></tr>");
-          return;
-        }
-
-        const columns = Object.keys(data[0]).map(col => ({
-          title: col.replace(/_/g, " ").toUpperCase(),
-          data: col
-        }));
-
-        // Initialize DataTable once
-        dataTable = $('#betsTable').DataTable({
-          data: data,
-          columns: columns,
-          pageLength: 15,
-          lengthMenu: [10, 15, 25, 50],
-          order: [[1, 'desc']], // sort by game_date descending
-          language: {
-            searchPlaceholder: "Search bets...",
-            search: "",
-            emptyTable: "No betting data found",
-          },
-          columnDefs: [
-            { targets: '_all', className: 'dt-body-left' }
-          ]
-        });
-
-        // Button click filtering by sport column
-        $('.filter-btn').on('click', function() {
-          const sport = $(this).data('sport');
-
-          updateActiveButton(this);
-
-          if (sport) {
-            dataTable.column(columns.findIndex(c => c.data === 'sport'))
-                     .search('^' + sport + '$', true, false)
-                     .draw();
-          } else {
-            // Reset filter
-            dataTable.column(columns.findIndex(c => c.data === 'sport')).search('').draw();
-          }
-        });
-      },
-      error: function(err) {
-        $('#betsTable').html("<tr><td>Error loading data.</td></tr>");
-      }
-    });
-  </script>
+  <!-- Your custom JS -->
+  <script src="scripts/app.js"></script>
 </body>
 </html>
-
-<!-- redeploy -->
-<!-- redeploy -->
