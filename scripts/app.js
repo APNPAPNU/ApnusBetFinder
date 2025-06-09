@@ -10,7 +10,7 @@ $(document).ready(() => {
     const label = sport === "all"
       ? "All Sports"
       : sport.charAt(0).toUpperCase() + sport.slice(1);
-    const btn = $(<button class="filter-btn" data-sport="${sport}">${label}</button>);
+    const btn = $(`<button class="filter-btn" data-sport="${sport}">${label}</button>`);
     $(".button-bar").append(btn);
   });
 
@@ -42,7 +42,7 @@ async function fetchAndDisplay(sport) {
   const allRows = [];
 
   for (const sp of toFetch) {
-    const url = ${API_BASE}&sport=${sp};
+    const url = `${API_BASE}&sport=${sp}`;
     try {
       const resp = await fetch(url);
       if (!resp.ok) {
