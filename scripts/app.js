@@ -5,13 +5,13 @@ const SPORTS = ["all", "baseball", "basketball", "football", "soccer", "hockey",
 const API_BASE = "https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getLiveGames?live=false";
 
 let dataTable = null;
-let currentSport = "all";  // we'll keep track of which sport is active
+let currentSport = "all";  // track which sport is active
 
-// ─── DOCUMENT READY: build sport buttons + refresh button and load default ────
+// ─── DOCUMENT READY: build sport & refresh buttons, load default ──────────────
 $(document).ready(() => {
-  // 1) Build sport filter buttons
+  // 1) Build each sport filter button
   SPORTS.forEach(sport => {
-    const label = sport === "all"
+    const label = (sport === "all")
       ? "All Sports"
       : sport.charAt(0).toUpperCase() + sport.slice(1);
     const btn = $(`<button class="filter-btn" data-sport="${sport}">${label}</button>`);
@@ -19,23 +19,25 @@ $(document).ready(() => {
   });
 
   // 2) Add a Refresh button at the end
-  const refreshBtn = $(`<button id="refreshBtn" style="margin-left: 12px; background:#f39c12; color:white; border:none; padding:10px 18px; border-radius:25px; cursor:pointer;">Refresh</button>`);
+  const refreshBtn = $(`
+    <button id="refreshBtn">Refresh</button>
+  `);
   $(".button-bar").append(refreshBtn);
 
-  // 3) Activate “All” and fetch combined data on page load
+  // 3) Activate “All Sports” by default & fetch combined data
   $(".filter-btn[data-sport='all']").addClass("active");
   fetchAndDisplay("all");
 
-  // 4) Auto-refresh every 60 seconds
+  // 4) Auto-refresh current table every 60 seconds
   setInterval(() => {
     fetchAndDisplay(currentSport);
-  }, 60000); // 60000 ms = 60s
+  }, 60000); // 60,000 ms = 60s
 });
 
 // ─── HANDLE SPORT BUTTON CLICKS ────────────────────────────────────────────────
 $(document).on("click", ".filter-btn", function() {
   const chosen = $(this).data("sport");
-  currentSport = chosen;                  // update global
+  currentSport = chosen;                   // update global state
   $(".filter-btn").removeClass("active");
   $(this).addClass("active");
   fetchAndDisplay(chosen);
@@ -48,14 +50,14 @@ $(document).on("click", "#refreshBtn", () => {
 
 // ─── CORE: fetchAndDisplay(sport) ──────────────────────────────────────────────
 async function fetchAndDisplay(sport) {
-  // Show a quick “Loading…” message while we fetch
+  // Show “Loading…” while fetching
   if (dataTable) {
     dataTable.destroy();
     $("#betsTable").empty();
   }
   $("#betsTable").html("<tr><td>Loading data…</td></tr>");
 
-  // Determine which endpoints to hit (all => every sport except "all")
+  // Which sub-endpoints to call?
   const toFetch = (sport === "all")
     ? SPORTS.filter(s => s !== "all")
     : [sport];
@@ -73,9 +75,10 @@ async function fetchAndDisplay(sport) {
       const json = await resp.json();
       const body = json.body || {};
 
-      // Flatten nested JSON into row objects
+      // Flatten the nested JSON
       Object.values(body).forEach(game => {
         const game_base = {
+          // We will omit game_id and game_name later
           game_id: game.game_id || "",
           game_date: game.game_date || "",
           game_name: game.game_name || "",
@@ -88,13 +91,16 @@ async function fetchAndDisplay(sport) {
           event_name: game.event_name || "",
           player_names: game.player_names || ""
         };
+
         const markets = game.markets || {};
         Object.values(markets).forEach(market => {
           const market_base = {
+            // We will omit market_id later
             market_id: market.market_id || "",
             market_type: market.market_type || "",
             market_display_name: market.display_name || ""
           };
+
           const outcomes = market.outcomes || {};
           Object.values(outcomes).forEach(outcome => {
             const best_odd = outcome.best_odd || {};
@@ -102,6 +108,7 @@ async function fetchAndDisplay(sport) {
             const odd_details = book_key ? (best_odd[book_key][0] || {}) : {};
 
             allRows.push({
+              // copy game_base and market_base, but we will omit some keys below
               ...game_base,
               ...market_base,
               outcome_id: outcome.outcome_id || "",
@@ -121,31 +128,47 @@ async function fetchAndDisplay(sport) {
     }
   }
 
-  // Destroy previous table if exists
+  // Remove unwanted columns from data:
+  // We’ll filter out these keys on every row: "game_id", "market_id", "outcome_id", "has_alt", "event_name", "game_name"
+  const columnsToRemove = new Set([
+    "game_id", "market_id", "outcome_id", "has_alt", "event_name", "game_name"
+  ]);
+  const filteredRows = allRows.map(row => {
+    const filtered = {};
+    for (const key in row) {
+      if (!columnsToRemove.has(key)) {
+        filtered[key] = row[key];
+      }
+    }
+    return filtered;
+  });
+
+  // Destroy previous DataTable if it exists
   if (dataTable) {
     dataTable.destroy();
     $("#betsTable").empty();
   }
 
-  // If no rows, show “No data available.”
-  if (allRows.length === 0) {
+  // If no rows, show placeholder
+  if (filteredRows.length === 0) {
     $("#betsTable").html("<tr><td>No data available.</td></tr>");
     return;
   }
 
-  // Build columns dynamically from keys of the first row
-  const columns = Object.keys(allRows[0]).map(col => ({
+  // Determine which columns to show, based on keys of the first filtered row
+  const visibleKeys = Object.keys(filteredRows[0]);
+  const columns = visibleKeys.map(col => ({
     title: col.replace(/_/g, " ").toUpperCase(),
     data: col
   }));
 
-  // Initialize DataTable
+  // Initialize DataTable with dark mode styling
   dataTable = $("#betsTable").DataTable({
-    data: allRows,
+    data: filteredRows,
     columns: columns,
     pageLength: 15,
     lengthMenu: [10, 15, 25, 50],
-    order: [[1, "desc"]], // sort by game_date descending
+    order: [[1, "desc"]], // assuming "game_date" is at index 1
     language: {
       searchPlaceholder: "Search bets...",
       search: "",
