@@ -15,36 +15,39 @@
     body {
       font-family: 'Inter', sans-serif;
       margin: 0;
-      background: #f5f7fa;
-      color: #333;
+      background: #121212;
+      color: #e0e0e0;
       line-height: 1.6;
     }
     .container {
       max-width: 1200px;
       margin: 2rem auto 4rem;
       padding: 0 1rem 2rem;
-      background: white;
+      background: #1e1e1e;
       border-radius: 8px;
-      box-shadow: 0 6px 15px rgb(0 0 0 / 0.1);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
     }
     h1 {
       text-align: center;
       font-weight: 600;
-      color: #222;
+      color: #ffffff;
       margin-bottom: 1rem;
       letter-spacing: 0.03em;
     }
 
-    /* Button group */
+    /* Button bar */
     .button-bar {
       text-align: center;
       margin-bottom: 1.5rem;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
     }
     .filter-btn {
       display: inline-block;
-      background-color: #e0e6ef;
-      border: none;
-      color: #444;
+      background-color: #2c2c2c;
+      border: 1px solid #444;
+      color: #e0e0e0;
       padding: 10px 18px;
       margin: 0 6px 10px 6px;
       font-size: 1rem;
@@ -54,57 +57,83 @@
       user-select: none;
     }
     .filter-btn:hover {
-      background-color: #4a90e2;
-      color: white;
+      background-color: #444;
+      color: #fff;
     }
     .filter-btn.active {
-      background-color: #4a90e2;
-      color: white;
+      background-color: #007acc;
+      color: #fff;
       font-weight: 600;
-      box-shadow: 0 4px 12px rgb(74 144 226 / 0.6);
+      box-shadow: 0 4px 12px rgba(0, 122, 204, 0.7);
+    }
+    /* Explicit Refresh button styling */
+    #refreshBtn {
+      display: inline-block;
+      background-color: #e07a5f;
+      border: 1px solid #bc5f47;
+      color: #fff;
+      padding: 10px 18px;
+      margin: 0 6px 10px 6px;
+      font-size: 1rem;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    #refreshBtn:hover {
+      background-color: #bc5f47;
     }
 
-    /* DataTables tweaks */
+    /* DataTables dark mode */
     table.dataTable {
       width: 100% !important;
       border-collapse: separate !important;
       border-spacing: 0 0.7em;
+      background: transparent;
     }
-    table.dataTable thead tr {
-      background-color: #4a90e2;
-      color: white;
-      border-radius: 6px;
+    table.dataTable thead {
+      background-color: #2c2c2c;
+      color: #ffffff;
     }
     table.dataTable thead th {
       padding: 12px 15px;
       font-weight: 600;
       border: none !important;
+      color: #e0e0e0;
     }
     table.dataTable tbody tr {
-      background: #fafafa;
+      background: #1e1e1e;
       transition: background-color 0.3s ease;
       cursor: default;
     }
     table.dataTable tbody tr:hover {
-      background-color: #e1eaff;
+      background-color: #2c2c2c;
     }
     table.dataTable tbody td {
       padding: 12px 15px;
+      color: #d0d0d0;
     }
     .dataTables_filter input {
       border-radius: 20px;
-      border: 1.5px solid #ccc;
+      border: 1.5px solid #444;
+      background: #2c2c2c;
+      color: #e0e0e0;
       padding: 7px 14px;
       width: 250px;
       font-size: 1rem;
       transition: border-color 0.3s ease;
     }
+    .dataTables_filter input::placeholder {
+      color: #888;
+    }
     .dataTables_filter input:focus {
       outline: none;
-      border-color: #4a90e2;
-      box-shadow: 0 0 6px #4a90e2aa;
+      border-color: #007acc;
+      box-shadow: 0 0 6px rgba(0, 122, 204, 0.6);
+      background: #333;
+      color: #fff;
     }
 
+    /* Responsive tweaks */
     @media (max-width: 768px) {
       .container {
         margin: 1rem;
@@ -112,9 +141,10 @@
       .dataTables_filter input {
         width: 100%;
       }
-      .filter-btn {
+      .filter-btn, #refreshBtn {
         padding: 8px 14px;
         margin: 4px 4px 10px 4px;
+        font-size: 0.9rem;
       }
     }
 
@@ -122,7 +152,7 @@
       text-align: center;
       padding: 1rem 0;
       font-size: 0.9rem;
-      color: #666;
+      color: #888;
     }
   </style>
 </head>
@@ -130,7 +160,11 @@
   <div class="container">
     <h1>Live Bets by Sport</h1>
 
-    <div class="button-bar"></div>
+    <div class="button-bar">
+      <!-- Sport buttons will be inserted here by app.js -->
+      <!-- We explicitly add the Refresh button here: -->
+      <button id="refreshBtn">Refresh</button>
+    </div>
 
     <table id="betsTable" class="display" style="width:100%"></table>
   </div>
@@ -139,13 +173,13 @@
     &copy; 2025 Apnus Bet Finder &mdash; Data updates on demand
   </footer>
 
-  <!-- jQuery -->
+  <!-- jQuery (required) -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <!-- PapaParse -->
+  <!-- PapaParse (not strictly required for JSON, but safe to include) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
   <!-- DataTables JS -->
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-  <!-- Your custom JS -->
+  <!-- Custom JS (fetching, filtering, refresh logic) -->
   <script src="scripts/app.js"></script>
 </body>
 </html>
