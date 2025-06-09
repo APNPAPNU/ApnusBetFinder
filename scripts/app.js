@@ -46,7 +46,7 @@ async function fetchAndDisplay(sport) {
     try {
       const resp = await fetch(url);
       if (!resp.ok) {
-        console.error(Failed to fetch ${sp}: HTTP ${resp.status});
+        console.error(`Failed to fetch ${sp}: HTTP ${resp.status}`);
         continue;
       }
       const json = await resp.json();
