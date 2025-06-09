@@ -125,7 +125,11 @@ async function fetchAndDisplay(sport) {
     "outcome_id",
     "has_alt",
     "event_name",
-    "game_name"
+    "game_name",
+    "player_1",
+    "player_2",
+    "player_names",
+    "outcome_display_name"
   ];
 
   // Get all keys in first row
