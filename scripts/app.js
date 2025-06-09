@@ -120,7 +120,18 @@ async function fetchAndDisplay(sport) {
   }
 
   // Columns to exclude
-  const columnsToRemove = ["game_id", "market_id", "outcome_id", "has_alt", "event_name", "game_name"];
+  const columnsToRemove = [
+  "game_id",
+  "market_id",
+  "outcome_id",
+  "has_alt",
+  "event_name",
+  "game_name",
+  "market_type",       // exclude these new ones
+  "odd_timestamp",
+  "sport",
+  "game_date"
+];
 
   // Get all columns keys from first row
   const allCols = Object.keys(allRows[0]);
