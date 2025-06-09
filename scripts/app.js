@@ -43,13 +43,10 @@ $(document).on("click", "#refreshBtn", () => {
 });
 
 async function fetchAndDisplay(sport) {
-  // Show loading text while fetching
-  $("#betsTable").html("<tbody><tr><td>Loading data...</td></tr></tbody>");
+  const toFetch = (sport === "all") ? SPORTS.filter(s => s !== "all") : [sport];
+  const allRows = [];
 
-  const sportsToFetch = sport === "all" ? SPORTS.filter(s => s !== "all") : [sport];
-  let allRows = [];
-
-  for (const sp of sportsToFetch) {
+  for (const sp of toFetch) {
     const url = `${API_BASE}&sport=${sp}`;
     try {
       const resp = await fetch(url);
@@ -74,7 +71,6 @@ async function fetchAndDisplay(sport) {
           event_name: game.event_name || "",
           player_names: game.player_names || ""
         };
-
         const markets = game.markets || {};
         Object.values(markets).forEach(market => {
           const market_base = {
@@ -108,42 +104,43 @@ async function fetchAndDisplay(sport) {
     }
   }
 
-  // Destroy previous DataTable if exists
   if (dataTable) {
     dataTable.destroy();
     $("#betsTable").empty();
   }
 
   if (allRows.length === 0) {
-    $("#betsTable").html("<tbody><tr><td>No data available.</td></tr></tbody>");
+    $("#betsTable").html("<tr><td>No data available.</td></tr>");
     return;
   }
 
-  // Columns to exclude
+  // Columns to exclude from display
   const columnsToRemove = [
-  "game_id",
-  "market_id",
-  "outcome_id",
-  "has_alt",
-  "event_name",
-  "game_name",
-  "market_type",       // exclude these new ones
-  "odd_timestamp",
-  "sport",
-  "game_date"
-];
+    "market_type",
+    "odd_timestamp",
+    "sport",
+    "game_date",
+    "game_id",
+    "market_id",
+    "outcome_id",
+    "has_alt",
+    "event_name",
+    "game_name"
+  ];
 
-  // Get all columns keys from first row
+  // Get all keys in first row
   const allCols = Object.keys(allRows[0]);
+
+  // Filter columns, removing the ones above
   const filteredCols = allCols.filter(col => !columnsToRemove.includes(col));
 
-  // Define columns for DataTable
+  // Build columns array for DataTables
   const columns = filteredCols.map(col => ({
     title: col.replace(/_/g, " ").toUpperCase(),
     data: col
   }));
 
-  // Trim rows to only filtered columns
+  // Filter each row to only include desired columns
   const filteredRows = allRows.map(row => {
     const filteredRow = {};
     filteredCols.forEach(col => {
@@ -154,7 +151,7 @@ async function fetchAndDisplay(sport) {
 
   dataTable = $("#betsTable").DataTable({
     data: filteredRows,
-    columns,
+    columns: columns,
     pageLength: 15,
     lengthMenu: [10, 15, 25, 50],
     order: [[1, "desc"]],
