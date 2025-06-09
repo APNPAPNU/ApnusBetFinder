@@ -7,7 +7,7 @@ const API_BASE = "https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/ge
 let dataTable = null;
 let currentSport = "all";  // track which sport is active
 
-// ─── DOCUMENT READY: build sport & refresh buttons, load default ──────────────
+// ─── DOCUMENT READY: build sport buttons, set up event handlers ──────────────
 $(document).ready(() => {
   // 1) Build each sport filter button
   SPORTS.forEach(sport => {
@@ -15,20 +15,15 @@ $(document).ready(() => {
       ? "All Sports"
       : sport.charAt(0).toUpperCase() + sport.slice(1);
     const btn = $(`<button class="filter-btn" data-sport="${sport}">${label}</button>`);
-    $(".button-bar").append(btn);
+    // Insert each sport button **before** the Refresh button
+    $("#refreshBtn").before(btn);
   });
 
-  // 2) Add a Refresh button at the end
-  const refreshBtn = $(`
-    <button id="refreshBtn">Refresh</button>
-  `);
-  $(".button-bar").append(refreshBtn);
-
-  // 3) Activate “All Sports” by default & fetch combined data
+  // 2) Activate “All Sports” by default & fetch combined data
   $(".filter-btn[data-sport='all']").addClass("active");
   fetchAndDisplay("all");
 
-  // 4) Auto-refresh current table every 60 seconds
+  // 3) Auto-refresh current table every 60 seconds
   setInterval(() => {
     fetchAndDisplay(currentSport);
   }, 60000); // 60,000 ms = 60s
@@ -57,7 +52,7 @@ async function fetchAndDisplay(sport) {
   }
   $("#betsTable").html("<tr><td>Loading data…</td></tr>");
 
-  // Which sub-endpoints to call?
+  // Determine which endpoints to call (all => every sport except "all")
   const toFetch = (sport === "all")
     ? SPORTS.filter(s => s !== "all")
     : [sport];
@@ -75,10 +70,9 @@ async function fetchAndDisplay(sport) {
       const json = await resp.json();
       const body = json.body || {};
 
-      // Flatten the nested JSON
+      // Flatten nested JSON into row objects
       Object.values(body).forEach(game => {
         const game_base = {
-          // We will omit game_id and game_name later
           game_id: game.game_id || "",
           game_date: game.game_date || "",
           game_name: game.game_name || "",
@@ -91,16 +85,13 @@ async function fetchAndDisplay(sport) {
           event_name: game.event_name || "",
           player_names: game.player_names || ""
         };
-
         const markets = game.markets || {};
         Object.values(markets).forEach(market => {
           const market_base = {
-            // We will omit market_id later
             market_id: market.market_id || "",
             market_type: market.market_type || "",
             market_display_name: market.display_name || ""
           };
-
           const outcomes = market.outcomes || {};
           Object.values(outcomes).forEach(outcome => {
             const best_odd = outcome.best_odd || {};
@@ -108,7 +99,6 @@ async function fetchAndDisplay(sport) {
             const odd_details = book_key ? (best_odd[book_key][0] || {}) : {};
 
             allRows.push({
-              // copy game_base and market_base, but we will omit some keys below
               ...game_base,
               ...market_base,
               outcome_id: outcome.outcome_id || "",
@@ -129,7 +119,6 @@ async function fetchAndDisplay(sport) {
   }
 
   // Remove unwanted columns from data:
-  // We’ll filter out these keys on every row: "game_id", "market_id", "outcome_id", "has_alt", "event_name", "game_name"
   const columnsToRemove = new Set([
     "game_id", "market_id", "outcome_id", "has_alt", "event_name", "game_name"
   ]);
@@ -168,7 +157,7 @@ async function fetchAndDisplay(sport) {
     columns: columns,
     pageLength: 15,
     lengthMenu: [10, 15, 25, 50],
-    order: [[1, "desc"]], // assuming "game_date" is at index 1
+    order: [[ visibleKeys.indexOf("game_date"), "desc" ]],
     language: {
       searchPlaceholder: "Search bets...",
       search: "",
