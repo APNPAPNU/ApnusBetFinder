@@ -1,47 +1,55 @@
 const SPORTS = ["all", "baseball", "basketball", "football", "soccer", "hockey", "golf"];
 const API_BASE = "https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getLiveGames?live=false";
 
-let currentSport = "all"; // Track current selected sport
+let currentSport = null;  // No sport selected initially
 let dataTable = null;
 
-// On page load, build buttons + Refresh button and fetch "all"
 $(document).ready(() => {
+  // Add buttons dynamically on page load
   SPORTS.forEach(sport => {
-    const label = sport === "all"
-      ? "All Sports"
-      : sport.charAt(0).toUpperCase() + sport.slice(1);
+    const label = sport === "all" ? "All Sports" : sport.charAt(0).toUpperCase() + sport.slice(1);
     const btn = $(`<button class="filter-btn" data-sport="${sport}">${label}</button>`);
     $(".button-bar").append(btn);
   });
 
-  // Add refresh button after sport buttons
-  const refreshBtn = $('<button id="refreshBtn" class="filter-btn">Refresh Data</button>');
+  // Add Refresh button at the end
+  const refreshBtn = $('<button id="refreshBtn">Refresh</button>');
   $(".button-bar").append(refreshBtn);
-
-  // Activate “All” and fetch combined data
-  $(".filter-btn[data-sport='all']").addClass("active");
-  fetchAndDisplay("all");
 });
 
-// Handle sport filter button clicks
-$(document).on("click", ".filter-btn[data-sport]", function() {
+// When user clicks a sport button
+$(document).on("click", ".filter-btn[data-sport]", function () {
   const chosen = $(this).data("sport");
+
+  if (currentSport === chosen) {
+    // If same button clicked again, do nothing
+    return;
+  }
+
   currentSport = chosen;
   $(".filter-btn").removeClass("active");
   $(this).addClass("active");
-  fetchAndDisplay(chosen);
-});
 
-// Handle refresh button click
-$(document).on("click", "#refreshBtn", function() {
   fetchAndDisplay(currentSport);
 });
 
-async function fetchAndDisplay(sport) {
-  const toFetch = (sport === "all") ? SPORTS.filter(s => s !== "all") : [sport];
-  const allRows = [];
+// Refresh button reloads data for current sport if any selected
+$(document).on("click", "#refreshBtn", () => {
+  if (currentSport) {
+    fetchAndDisplay(currentSport);
+  } else {
+    alert("Please select a sport first.");
+  }
+});
 
-  for (const sp of toFetch) {
+async function fetchAndDisplay(sport) {
+  // Show loading text while fetching
+  $("#betsTable").html("<tbody><tr><td>Loading data...</td></tr></tbody>");
+
+  const sportsToFetch = sport === "all" ? SPORTS.filter(s => s !== "all") : [sport];
+  let allRows = [];
+
+  for (const sp of sportsToFetch) {
     const url = `${API_BASE}&sport=${sp}`;
     try {
       const resp = await fetch(url);
@@ -66,6 +74,7 @@ async function fetchAndDisplay(sport) {
           event_name: game.event_name || "",
           player_names: game.player_names || ""
         };
+
         const markets = game.markets || {};
         Object.values(markets).forEach(market => {
           const market_base = {
@@ -99,41 +108,42 @@ async function fetchAndDisplay(sport) {
     }
   }
 
-  // Destroy previous DataTable if it exists, empty table element
+  // Destroy previous DataTable if exists
   if (dataTable) {
     dataTable.destroy();
     $("#betsTable").empty();
   }
 
   if (allRows.length === 0) {
-    $("#betsTable").html("<tr><td>No data available.</td></tr>");
+    $("#betsTable").html("<tbody><tr><td>No data available.</td></tr></tbody>");
     return;
   }
 
-  // Filter out unwanted columns here:
-  const columnsToRemove = [
-    "game_id", "market_id", "outcome_id", "has_alt", "event_name", "game_name"
-  ];
+  // Columns to exclude
+  const columnsToRemove = ["game_id", "market_id", "outcome_id", "has_alt", "event_name", "game_name"];
 
-  // Build columns dynamically, excluding filtered
+  // Get all columns keys from first row
   const allCols = Object.keys(allRows[0]);
   const filteredCols = allCols.filter(col => !columnsToRemove.includes(col));
 
+  // Define columns for DataTable
   const columns = filteredCols.map(col => ({
     title: col.replace(/_/g, " ").toUpperCase(),
     data: col
   }));
 
-  // Trim rows to only filtered columns (optional)
+  // Trim rows to only filtered columns
   const filteredRows = allRows.map(row => {
     const filteredRow = {};
-    filteredCols.forEach(col => filteredRow[col] = row[col]);
+    filteredCols.forEach(col => {
+      filteredRow[col] = row[col];
+    });
     return filteredRow;
   });
 
   dataTable = $("#betsTable").DataTable({
     data: filteredRows,
-    columns: columns,
+    columns,
     pageLength: 15,
     lengthMenu: [10, 15, 25, 50],
     order: [[1, "desc"]],
