@@ -34,8 +34,6 @@
       margin-bottom: 1rem;
       letter-spacing: 0.03em;
     }
-
-    /* Button bar */
     .button-bar {
       text-align: center;
       margin-bottom: 1.5rem;
@@ -66,7 +64,6 @@
       font-weight: 600;
       box-shadow: 0 4px 12px rgba(0, 122, 204, 0.7);
     }
-    /* Explicit Refresh button styling */
     #refreshBtn {
       display: inline-block;
       background-color: #e07a5f;
@@ -82,8 +79,6 @@
     #refreshBtn:hover {
       background-color: #bc5f47;
     }
-
-    /* DataTables dark mode */
     table.dataTable {
       width: 100% !important;
       border-collapse: separate !important;
@@ -132,8 +127,6 @@
       background: #333;
       color: #fff;
     }
-
-    /* Responsive tweaks */
     @media (max-width: 768px) {
       .container {
         margin: 1rem;
@@ -147,7 +140,6 @@
         font-size: 0.9rem;
       }
     }
-
     footer {
       text-align: center;
       padding: 1rem 0;
@@ -159,27 +151,18 @@
 <body>
   <div class="container">
     <h1>Live Bets by Sport</h1>
-
-    <div class="button-bar">
-      <!-- Sport buttons will be inserted here by app.js -->
-      <!-- We explicitly add the Refresh button here: -->
-      <button id="refreshBtn">Refresh</button>
-    </div>
-
+    <div class="button-bar"></div>
     <table id="betsTable" class="display" style="width:100%"></table>
   </div>
-
   <footer>
     &copy; 2025 Apnus Bet Finder &mdash; Data updates on demand
   </footer>
 
-  <!-- jQuery (required) -->
+  <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <!-- PapaParse (not strictly required for JSON, but safe to include) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-  <!-- DataTables JS -->
+  <!-- DataTables -->
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-  <!-- Custom JS (fetching, filtering, refresh logic) -->
+  <!-- Custom JS -->
   <script src="scripts/app.js"></script>
 </body>
 </html>
