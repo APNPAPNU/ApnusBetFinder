@@ -1,31 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Sports Betting Data</title>
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-  <style>
-    .button-bar {
-      margin-bottom: 10px;
-    }
-    .filter-btn {
-      margin-right: 6px;
-      padding: 6px 12px;
-      cursor: pointer;
-    }
-    .filter-btn.active {
-      background-color: #007bff;
-      color: white;
-    }
-  </style>
-</head>
-<body>
-
-<div class="button-bar"></div>
-<table id="betsTable" class="display" style="width:100%"></table>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script>
 const SPORTS = ["all", "baseball", "basketball", "football", "soccer", "hockey", "golf"];
 const API_BASE = "https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getLiveGames?live=false";
@@ -34,20 +6,25 @@ let currentSport = "all";
 let dataTable = null;
 
 $(document).ready(() => {
+  // Create filter buttons
   SPORTS.forEach(sport => {
-    const label = sport === "all" ? "All Sports" : sport.charAt(0).toUpperCase() + sport.slice(1);
+    const label = sport === "all"
+      ? "All Sports"
+      : sport.charAt(0).toUpperCase() + sport.slice(1);
     const btn = $(`<button class="filter-btn" data-sport="${sport}">${label}</button>`);
     $(".button-bar").append(btn);
   });
 
+  // Add refresh button
   const refreshBtn = $('<button id="refreshBtn" class="filter-btn">Refresh Data</button>');
   $(".button-bar").append(refreshBtn);
 
+  // Activate “All” and fetch data
   $(".filter-btn[data-sport='all']").addClass("active");
   fetchAndDisplay("all");
 });
 
-$(document).on("click", ".filter-btn[data-sport]", function() {
+$(document).on("click", ".filter-btn[data-sport]", function () {
   const chosen = $(this).data("sport");
   currentSport = chosen;
   $(".filter-btn").removeClass("active");
@@ -55,7 +32,7 @@ $(document).on("click", ".filter-btn[data-sport]", function() {
   fetchAndDisplay(chosen);
 });
 
-$(document).on("click", "#refreshBtn", function() {
+$(document).on("click", "#refreshBtn", function () {
   fetchAndDisplay(currentSport);
 });
 
@@ -88,7 +65,6 @@ async function fetchAndDisplay(sport) {
           event_name: game.event_name || "",
           player_names: game.player_names || ""
         };
-
         const markets = game.markets || {};
         Object.values(markets).forEach(market => {
           const market_base = {
@@ -122,6 +98,7 @@ async function fetchAndDisplay(sport) {
     }
   }
 
+  // Destroy previous DataTable and clear the table
   if (dataTable) {
     dataTable.destroy();
     $("#betsTable").empty();
@@ -132,15 +109,16 @@ async function fetchAndDisplay(sport) {
     return;
   }
 
+  // Remove unwanted columns
   const columnsToRemove = [
-    "game_id", 
-    "market_id", 
-    "outcome_id", 
-    "has_alt", 
-    "event_name", 
-    "game_name", 
-    "game_date", 
-    "market_type"
+    "game_id",
+    "game_date",
+    "game_name",
+    "market_id",
+    "market_type",
+    "outcome_id",
+    "has_alt",
+    "event_name"
   ];
 
   const allCols = Object.keys(allRows[0]);
@@ -172,6 +150,3 @@ async function fetchAndDisplay(sport) {
   });
 }
 </script>
-
-</body>
-</html>
