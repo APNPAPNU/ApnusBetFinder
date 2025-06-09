@@ -10,9 +10,362 @@
       content="Advanced Sports Betting Analysis System"
     />
     <title>Apnubets - Betting Analyzer</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+      
+      // Lucide React icons (simplified versions)
+      const Calculator = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m9 9h6v6h-6z"/><path d="M9 1v6"/><path d="m15 1v6"/><path d="M9 15v6"/><path d="m15 15v6"/></svg>;
+      const TrendingUp = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22,7 13.5,15.5 8.5,10.5 2,17"/><polyline points="16,7 22,7 22,13"/></svg>;
+      const Shield = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
+      const DollarSign = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
+      const Target = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
+      const AlertTriangle = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="m12 17.02.01 0"/></svg>;
+      const Plus = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
+      const Minus = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14"/></svg>;
+
+      const BettingAnalyzer = () => {
+        const [bankroll, setBankroll] = useState(1000);
+        const [bets, setBets] = useState([]);
+        const [markets, setMarkets] = useState([
+          { id: 1, name: "+122/-138", odds: 128.72, book: "Pinnacle", weight: 30 },
+          { id: 2, name: "+125/-145", odds: 133.16, book: "Circa", weight: 25 },
+          { id: 3, name: "+120/-140", odds: 128.33, book: "BetOnline", weight: 15 },
+          { id: 4, name: "+136/-168", odds: 147.94, book: "FanDuel", weight: 20 },
+          { id: 5, name: "+120/-150", odds: 132, book: "Caesars", weight: 10 },
+        ]);
+        
+        const [newBet, setNewBet] = useState({
+          market: '',
+          odds: 0,
+          probability: 0.5,
+          book: '',
+          weight: 0
+        });
+
+        const [settings, setSettings] = useState({
+          minEdge: 0.02,
+          maxKellyFraction: 0.25,
+          unitSize: 0.02
+        });
+
+        // Kelly Criterion calculation
+        const calculateKelly = (probability, decimalOdds) => {
+          const b = decimalOdds - 1;
+          const p = probability;
+          const q = 1 - p;
+          
+          if (p * b - q <= 0) return 0;
+          
+          const kelly = (p * b - q) / b;
+          return Math.min(kelly, settings.maxKellyFraction);
+        };
+
+        // Convert American odds to decimal
+        const americanToDecimal = (american) => {
+          if (american > 0) {
+            return (american / 100) + 1;
+          } else {
+            return (100 / Math.abs(american)) + 1;
+          }
+        };
+
+        // Calculate weighted average odds
+        const calculateWeightedAvg = () => {
+          const totalWeight = markets.reduce((sum, market) => sum + market.weight, 0);
+          const weightedSum = markets.reduce((sum, market) => sum + (market.odds * market.weight), 0);
+          return totalWeight > 0 ? weightedSum / totalWeight : 0;
+        };
+
+        // Calculate fair odds and edge
+        const calculateEdge = (marketOdds) => {
+          const weightedAvg = calculateWeightedAvg();
+          const fairOdds = weightedAvg;
+          const edge = (fairOdds - marketOdds) / marketOdds;
+          return edge;
+        };
+
+        // Find +EV opportunities
+        const findPlusEVBets = () => {
+          return markets.filter(market => {
+            const edge = calculateEdge(market.odds);
+            return edge > settings.minEdge;
+          }).map(market => {
+            const edge = calculateEdge(market.odds);
+            const decimalOdds = americanToDecimal(market.odds);
+            const impliedProb = 1 / decimalOdds;
+            const fairProb = impliedProb + edge;
+            const kelly = calculateKelly(fairProb, decimalOdds);
+            const betAmount = bankroll * kelly;
+            
+            return {
+              ...market,
+              edge,
+              decimalOdds,
+              impliedProb,
+              fairProb,
+              kelly,
+              betAmount,
+              potentialProfit: betAmount * (decimalOdds - 1)
+            };
+          });
+        };
+
+        const addMarket = () => {
+          if (!newBet.market || !newBet.odds || !newBet.book) return;
+          
+          const id = Date.now();
+          const market = {
+            id,
+            name: newBet.market,
+            odds: newBet.odds,
+            book: newBet.book,
+            weight: newBet.weight || 10
+          };
+          
+          setMarkets([...markets, market]);
+          setNewBet({ market: '', odds: 0, probability: 0.5, book: '', weight: 0 });
+        };
+
+        const removeMarket = (id) => {
+          setMarkets(markets.filter(m => m.id !== id));
+        };
+
+        const plusEVBets = findPlusEVBets();
+        const weightedAvg = calculateWeightedAvg();
+
+        return React.createElement('div', { className: "min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 p-4" },
+          React.createElement('div', { className: "max-w-7xl mx-auto" },
+            // Header
+            React.createElement('div', { className: "text-center mb-8" },
+              React.createElement('h1', { className: "text-4xl font-bold text-white mb-2 flex items-center justify-center gap-3" },
+                React.createElement(TrendingUp, { className: "text-green-400" }),
+                "Apnubets Analysis System"
+              ),
+              React.createElement('p', { className: "text-blue-200" }, "Find +EV bets, arbitrage opportunities, and manage bankroll")
+            ),
+
+            // Bankroll & Settings
+            React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" },
+              React.createElement('div', { className: "bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20" },
+                React.createElement('div', { className: "flex items-center gap-2 mb-4" },
+                  React.createElement(DollarSign, { className: "text-green-400" }),
+                  React.createElement('h3', { className: "text-white font-semibold" }, "Bankroll")
+                ),
+                React.createElement('input', {
+                  type: "number",
+                  value: bankroll,
+                  onChange: (e) => setBankroll(Number(e.target.value)),
+                  className: "w-full bg-white/20 text-white rounded-lg px-3 py-2 border border-white/30",
+                  placeholder: "Enter bankroll"
+                }),
+                React.createElement('div', { className: "text-blue-200 text-sm mt-2" },
+                  `Unit Size: $${(bankroll * settings.unitSize).toFixed(2)}`
+                )
+              ),
+
+              React.createElement('div', { className: "bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20" },
+                React.createElement('div', { className: "flex items-center gap-2 mb-4" },
+                  React.createElement(Target, { className: "text-orange-400" }),
+                  React.createElement('h3', { className: "text-white font-semibold" }, "Edge Settings")
+                ),
+                React.createElement('div', { className: "space-y-2" },
+                  React.createElement('div', null,
+                    React.createElement('label', { className: "text-blue-200 text-sm" }, "Min Edge (%)"),
+                    React.createElement('input', {
+                      type: "number",
+                      value: settings.minEdge * 100,
+                      onChange: (e) => setSettings({...settings, minEdge: e.target.value / 100}),
+                      className: "w-full bg-white/20 text-white rounded px-2 py-1 text-sm",
+                      step: "0.1"
+                    })
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { className: "text-blue-200 text-sm" }, "Max Kelly (%)"),
+                    React.createElement('input', {
+                      type: "number",
+                      value: settings.maxKellyFraction * 100,
+                      onChange: (e) => setSettings({...settings, maxKellyFraction: e.target.value / 100}),
+                      className: "w-full bg-white/20 text-white rounded px-2 py-1 text-sm",
+                      step: "1"
+                    })
+                  )
+                )
+              ),
+
+              React.createElement('div', { className: "bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20" },
+                React.createElement('div', { className: "flex items-center gap-2 mb-4" },
+                  React.createElement(Calculator, { className: "text-purple-400" }),
+                  React.createElement('h3', { className: "text-white font-semibold" }, "Weighted Average")
+                ),
+                React.createElement('div', { className: "text-2xl font-bold text-white" },
+                  weightedAvg.toFixed(2)
+                ),
+                React.createElement('div', { className: "text-blue-200 text-sm" },
+                  "Fair Odds Estimate"
+                )
+              )
+            ),
+
+            // Add Market
+            React.createElement('div', { className: "bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 mb-6" },
+              React.createElement('h3', { className: "text-white font-semibold mb-4" }, "Add Market"),
+              React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-5 gap-4" },
+                React.createElement('input', {
+                  type: "text",
+                  placeholder: "Market (e.g., +120/-140)",
+                  value: newBet.market,
+                  onChange: (e) => setNewBet({...newBet, market: e.target.value}),
+                  className: "bg-white/20 text-white rounded-lg px-3 py-2 border border-white/30"
+                }),
+                React.createElement('input', {
+                  type: "number",
+                  placeholder: "Odds",
+                  value: newBet.odds || '',
+                  onChange: (e) => setNewBet({...newBet, odds: Number(e.target.value)}),
+                  className: "bg-white/20 text-white rounded-lg px-3 py-2 border border-white/30"
+                }),
+                React.createElement('input', {
+                  type: "text",
+                  placeholder: "Sportsbook",
+                  value: newBet.book,
+                  onChange: (e) => setNewBet({...newBet, book: e.target.value}),
+                  className: "bg-white/20 text-white rounded-lg px-3 py-2 border border-white/30"
+                }),
+                React.createElement('input', {
+                  type: "number",
+                  placeholder: "Weight %",
+                  value: newBet.weight || '',
+                  onChange: (e) => setNewBet({...newBet, weight: Number(e.target.value)}),
+                  className: "bg-white/20 text-white rounded-lg px-3 py-2 border border-white/30"
+                }),
+                React.createElement('button', {
+                  onClick: addMarket,
+                  className: "bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 flex items-center justify-center gap-2"
+                },
+                  React.createElement(Plus, { size: 16 }),
+                  "Add Market"
+                )
+              )
+            ),
+
+            // Markets Table
+            React.createElement('div', { className: "bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 mb-6" },
+              React.createElement('h3', { className: "text-white font-semibold mb-4" }, "Current Markets"),
+              React.createElement('div', { className: "overflow-x-auto" },
+                React.createElement('table', { className: "w-full text-white" },
+                  React.createElement('thead', null,
+                    React.createElement('tr', { className: "border-b border-white/20" },
+                      React.createElement('th', { className: "text-left py-2" }, "Market"),
+                      React.createElement('th', { className: "text-left py-2" }, "Odds"),
+                      React.createElement('th', { className: "text-left py-2" }, "Book"),
+                      React.createElement('th', { className: "text-left py-2" }, "Weight"),
+                      React.createElement('th', { className: "text-left py-2" }, "Edge"),
+                      React.createElement('th', { className: "text-left py-2" }, "Action")
+                    )
+                  ),
+                  React.createElement('tbody', null,
+                    markets.map(market => {
+                      const edge = calculateEdge(market.odds);
+                      return React.createElement('tr', { key: market.id, className: "border-b border-white/10" },
+                        React.createElement('td', { className: "py-2" }, market.name),
+                        React.createElement('td', { className: "py-2" }, market.odds),
+                        React.createElement('td', { className: "py-2" }, market.book),
+                        React.createElement('td', { className: "py-2" }, `${market.weight}%`),
+                        React.createElement('td', { className: `py-2 ${edge > 0 ? 'text-green-400' : 'text-red-400'}` },
+                          `${(edge * 100).toFixed(2)}%`
+                        ),
+                        React.createElement('td', { className: "py-2" },
+                          React.createElement('button', {
+                            onClick: () => removeMarket(market.id),
+                            className: "text-red-400 hover:text-red-300"
+                          },
+                            React.createElement(Minus, { size: 16 })
+                          )
+                        )
+                      );
+                    })
+                  )
+                )
+              )
+            ),
+
+            // +EV Bets
+            React.createElement('div', { className: "bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20" },
+              React.createElement('div', { className: "flex items-center gap-2 mb-4" },
+                React.createElement(TrendingUp, { className: "text-green-400" }),
+                React.createElement('h3', { className: "text-white font-semibold" }, "+EV Opportunities")
+              ),
+              
+              plusEVBets.length > 0 
+                ? React.createElement('div', { className: "space-y-4" },
+                    plusEVBets.map(bet =>
+                      React.createElement('div', { key: bet.id, className: "bg-green-900/30 rounded-lg p-4 border border-green-500/30" },
+                        React.createElement('div', { className: "flex justify-between items-start mb-2" },
+                          React.createElement('div', null,
+                            React.createElement('div', { className: "text-white font-medium" }, bet.name),
+                            React.createElement('div', { className: "text-green-200 text-sm" }, bet.book)
+                          ),
+                          React.createElement('div', { className: "text-green-400 font-bold" },
+                            `+${(bet.edge * 100).toFixed(1)}%`
+                          )
+                        ),
+                        
+                        React.createElement('div', { className: "grid grid-cols-2 gap-4 text-sm" },
+                          React.createElement('div', null,
+                            React.createElement('div', { className: "text-blue-200" }, "Kelly Size"),
+                            React.createElement('div', { className: "text-white" }, `${(bet.kelly * 100).toFixed(1)}%`)
+                          ),
+                          React.createElement('div', null,
+                            React.createElement('div', { className: "text-blue-200" }, "Bet Amount"),
+                            React.createElement('div', { className: "text-white" }, `$${bet.betAmount.toFixed(2)}`)
+                          ),
+                          React.createElement('div', null,
+                            React.createElement('div', { className: "text-blue-200" }, "Potential Profit"),
+                            React.createElement('div', { className: "text-green-400" }, `$${bet.potentialProfit.toFixed(2)}`)
+                          ),
+                          React.createElement('div', null,
+                            React.createElement('div', { className: "text-blue-200" }, "Implied Prob"),
+                            React.createElement('div', { className: "text-white" }, `${(bet.impliedProb * 100).toFixed(1)}%`)
+                          )
+                        )
+                      )
+                    )
+                  )
+                : React.createElement('div', { className: "text-center text-blue-200 py-8" },
+                    React.createElement(AlertTriangle, { className: "mx-auto mb-2 opacity-50" }),
+                    "No +EV opportunities found"
+                  )
+            )
+          )
+        );
+      };
+
+      const App = () => {
+        return React.createElement('div', { className: "App" },
+          React.createElement(BettingAnalyzer)
+        );
+      };
+
+      ReactDOM.render(React.createElement(App), document.getElementById('root'));
+    </script>
   </body>
 </html>
