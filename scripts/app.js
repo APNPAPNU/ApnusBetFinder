@@ -1,29 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sports Betting Data</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <style>
+    .button-bar {
+      margin-bottom: 10px;
+    }
+    .filter-btn {
+      margin-right: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .filter-btn.active {
+      background-color: #007bff;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+<div class="button-bar"></div>
+<table id="betsTable" class="display" style="width:100%"></table>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script>
 const SPORTS = ["all", "baseball", "basketball", "football", "soccer", "hockey", "golf"];
 const API_BASE = "https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getLiveGames?live=false";
 
-let currentSport = "all"; // Track current selected sport
+let currentSport = "all";
 let dataTable = null;
 
-// On page load, build buttons + Refresh button and fetch "all"
 $(document).ready(() => {
   SPORTS.forEach(sport => {
-    const label = sport === "all"
-      ? "All Sports"
-      : sport.charAt(0).toUpperCase() + sport.slice(1);
+    const label = sport === "all" ? "All Sports" : sport.charAt(0).toUpperCase() + sport.slice(1);
     const btn = $(`<button class="filter-btn" data-sport="${sport}">${label}</button>`);
     $(".button-bar").append(btn);
   });
 
-  // Add refresh button after sport buttons
   const refreshBtn = $('<button id="refreshBtn" class="filter-btn">Refresh Data</button>');
   $(".button-bar").append(refreshBtn);
 
-  // Activate “All” and fetch combined data
   $(".filter-btn[data-sport='all']").addClass("active");
   fetchAndDisplay("all");
 });
 
-// Handle sport filter button clicks
 $(document).on("click", ".filter-btn[data-sport]", function() {
   const chosen = $(this).data("sport");
   currentSport = chosen;
@@ -32,7 +55,6 @@ $(document).on("click", ".filter-btn[data-sport]", function() {
   fetchAndDisplay(chosen);
 });
 
-// Handle refresh button click
 $(document).on("click", "#refreshBtn", function() {
   fetchAndDisplay(currentSport);
 });
@@ -56,6 +78,7 @@ async function fetchAndDisplay(sport) {
         const game_base = {
           game_id: game.game_id || "",
           game_name: game.game_name || "",
+          game_date: game.game_date || "",
           sport: game.sport || sp,
           league: game.league || "",
           home_team: game.home_team || "",
@@ -65,6 +88,7 @@ async function fetchAndDisplay(sport) {
           event_name: game.event_name || "",
           player_names: game.player_names || ""
         };
+
         const markets = game.markets || {};
         Object.values(markets).forEach(market => {
           const market_base = {
@@ -98,7 +122,6 @@ async function fetchAndDisplay(sport) {
     }
   }
 
-  // Destroy previous DataTable if it exists, empty table element
   if (dataTable) {
     dataTable.destroy();
     $("#betsTable").empty();
@@ -109,12 +132,17 @@ async function fetchAndDisplay(sport) {
     return;
   }
 
-  // Filter out unwanted columns here:
   const columnsToRemove = [
-    "game_id", "market_id", "outcome_id", "has_alt", "event_name", "game_name"
+    "game_id", 
+    "market_id", 
+    "outcome_id", 
+    "has_alt", 
+    "event_name", 
+    "game_name", 
+    "game_date", 
+    "market_type"
   ];
 
-  // Build columns dynamically, excluding filtered
   const allCols = Object.keys(allRows[0]);
   const filteredCols = allCols.filter(col => !columnsToRemove.includes(col));
 
@@ -123,7 +151,6 @@ async function fetchAndDisplay(sport) {
     data: col
   }));
 
-  // Trim rows to only filtered columns (optional)
   const filteredRows = allRows.map(row => {
     const filteredRow = {};
     filteredCols.forEach(col => filteredRow[col] = row[col]);
@@ -144,3 +171,7 @@ async function fetchAndDisplay(sport) {
     columnDefs: [{ targets: "_all", className: "dt-body-left" }]
   });
 }
+</script>
+
+</body>
+</html>
