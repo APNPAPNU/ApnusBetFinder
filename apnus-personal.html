@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apnus Personal - Live Betting Analysis</title>
+    
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    
+    <!-- Custom Styles -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid #2ecc71;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .button-bar {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .filter-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .filter-btn.active {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            border-color: #ff6b6b;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .table-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* DataTable Customizations */
+        .dataTables_wrapper {
+            font-size: 14px;
+        }
+        
+        .dataTables_filter input {
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            padding: 8px 15px;
+            margin-left: 10px;
+        }
+        
+        .dataTables_length select {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 5px;
+        }
+        
+        table.dataTable {
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        table.dataTable thead th {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            font-weight: 600;
+            padding: 12px 8px;
+            border: none;
+        }
+        
+        table.dataTable tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        table.dataTable tbody tr:hover {
+            background-color: #e3f2fd;
+        }
+        
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 600;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+        
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .button-bar {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .filter-btn {
+                width: 200px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="./" class="back-btn">← Back to Main</a>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Apnus Personal</h1>
+            <p>Live Betting Analysis & Opportunity Finder</p>
+            <div class="status" id="status">🔄 Loading...</div>
+        </div>
+        
+        <div class="button-bar" id="buttonBar">
+            <!-- Sport filter buttons will be added here by JavaScript -->
+        </div>
+        
+        <div class="table-container">
+            <div class="loading" id="loading">Loading betting data...</div>
+            <table id="betsTable" class="display" style="width:100%; display:none;">
+                <!-- Data will be populated by JavaScript -->
+            </table>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Configuration
+        const SPORTS = ['all', 'baseball', 'basketball', 'football', 'soccer', 'hockey', 'golf'];
+        const API_BASE = "https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getLiveGames?live=false";
+        
+        let dataTable = null;
+        let currentSport = 'all';
+        
+        // Initialize page when DOM is ready
+        $(document).ready(() => {
+            initializePage();
+        });
+        
+        function initializePage() {
+            // Build sport filter buttons
+            SPORTS.forEach(sport => {
+                const label = sport === "all" 
+                    ? "🌐 All Sports" 
+                    : `${getSportEmoji(sport)} ${sport.charAt(0).toUpperCase() + sport.slice(1)}`;
+                    
+                const btn = $(`<button class="filter-btn" data-sport="${sport}">${label}</button>`);
+                $("#buttonBar").append(btn);
+            });
+            
+            // Set "All Sports" as active by default
+            $(`.filter-btn[data-sport='all']`).addClass("active");
+            
+            // Fetch and display data for all sports
+            fetchAndDisplay('all');
+        }
+        
+        function getSportEmoji(sport) {
+            const emojis = {
+                'baseball': '⚾',
+                'basketball': '🏀', 
+                'football': '🏈',
+                'soccer': '⚽',
+                'hockey': '🏒',
+                'golf': '⛳'
+            };
+            return emojis[sport] || '🎯';
+        }
+        
+        // Handle sport filter button clicks
+        $(document).on("click", ".filter-btn", function() {
+            const chosen = $(this).data("sport");
+            if (chosen === currentSport) return; // Don't reload same data
+            
+            currentSport = chosen;
+            $(".filter-btn").removeClass("active");
+            $(this).addClass("active");
+            
+            fetchAndDisplay(chosen);
+        });
+        
+        async function fetchAndDisplay(sport) {
+            updateStatus("🔄 Loading data...", "loading");
+            
+            // Show loading, hide table
+            $("#loading").show();
+            $("#betsTable").hide();
+            
+            // Determine which sports to fetch
+            const toFetch = (sport === "all") 
+                ? SPORTS.filter(s => s !== "all")
+                : [sport];
+            
+            const allRows = [];
+            let totalApiCalls = 0;
+            let successfulCalls = 0;
+            
+            for (const sp of toFetch) {
+                const url = `${API_BASE}&sport=${sp}`;
+                totalApiCalls++;
+                
+                try {
+                    const resp = await fetch(url);
+                    if (!resp.ok) {
+                        console.error(`Failed to fetch ${sp}: HTTP ${resp.status}`);
+                        continue;
+                    }
+                    
+                    const json = await resp.json();
+                    const body = json.body || {};
+                    successfulCalls++;
+                    
+                    // Process and flatten the nested JSON data
+                    Object.values(body).forEach(game => {
+                        const game_base = {
+                            game_id: game.game_id || "",
+                            game_date: game.game_date || "",
+                            game_name: game.game_name || "",
+                            sport: game.sport || sp,
+                            league: game.league || "",
+                            home_team: game.home_team || "",
+                            away_team: game.away_team || "",
+                            player_1: game.player_1 || "",
+                            player_2: game.player_2 || "",
+                            event_name: game.event_name || "",
+                            player_names: game.player_names || ""
+                        };
+                        
+                        const markets = game.markets || {};
+                        Object.values(markets).forEach(market => {
+                            const market_base = {
+                                market_id: market.market_id || "",
+                                market_type: market.market_type || "",
+                                market_display_name: market.display_name || ""
+                            };
+                            
+                            const outcomes = market.outcomes || {};
+                            Object.values(outcomes).forEach(outcome => {
+                                const best_odd = outcome.best_odd || {};
+                                const book_key = Object.keys(best_odd)[0] || "";
+                                const odd_details = book_key ? (best_odd[book_key][0] || {}) : {};
+                                
+                                allRows.push({
+                                    ...game_base,
+                                    ...market_base,
+                                    outcome_id: outcome.outcome_id || "",
+                                    outcome_type: outcome.outcome_type || "",
+                                    outcome_display_name: outcome.display_name || "",
+                                    has_alt: outcome.has_alt || false,
+                                    odd_timestamp: odd_details.timestamp || "",
+                                    spread: odd_details.spread || 0,
+                                    american_odds: odd_details.american_odds || 0,
+                                    book: odd_details.book || ""
+                                });
+                            });
+                        });
+                    });
+                    
+                } catch (err) {
+                    console.error(`Error fetching ${sp}:`, err);
+                }
+            }
+            
+            // Update UI based on results
+            if (allRows.length === 0) {
+                updateStatus("❌ No data available", "error");
+                $("#loading").html("<div style='text-align: center; padding: 50px; color: #666;'>No betting data found for selected sport(s)</div>");
+                return;
+            }
+            
+            updateStatus(`✅ Loaded ${allRows.length} opportunities from ${successfulCalls}/${totalApiCalls} sources`, "success");
+            
+            // Destroy existing DataTable if it exists
+            if (dataTable) {
+                dataTable.destroy();
+                $("#betsTable").empty();
+            }
+            
+            // Build columns dynamically from the first row
+            const columns = Object.keys(allRows[0]).map(col => {
+                return { 
+                    title: col.replace(/_/g, " ").toUpperCase(), 
+                    data: col,
+                    className: "dt-body-left"
+                };
+            });
+            
+            // Hide loading and show table
+            $("#loading").hide();
+            $("#betsTable").show();
+            
+            // Initialize DataTable with enhanced configuration
+            dataTable = $("#betsTable").DataTable({
+                data: allRows,
+                columns: columns,
+                pageLength: 25,
+                lengthMenu: [10, 25, 50, 100],
+                order: [[1, "desc"]], // Sort by game_date descending
+                language: {
+                    searchPlaceholder: "Search all betting data...",
+                    search: "🔍",
+                    emptyTable: "No betting opportunities found",
+                    info: "Showing _START_ to _END_ of _TOTAL_ opportunities",
+                    infoEmpty: "No opportunities available",
+                    lengthMenu: "Show _MENU_ opportunities per page"
+                },
+                columnDefs: [
+                    { targets: "_all", className: "dt-body-left" },
+                    { 
+                        targets: [0], // game_id column
+                        visible: false // Hide technical columns
+                    }
+                ],
+                responsive: true,
+                scrollX: true
+            });
+        }
+        
+        function updateStatus(message, type) {
+            const statusEl = $("#status");
+            statusEl.text(message);
+            
+            // Update styling based on status type
+            statusEl.removeClass("loading success error");
+            if (type === "success") {
+                statusEl.css({
+                    "background": "rgba(46, 204, 113, 0.2)",
+                    "border-color": "#2ecc71",
+                    "color": "white"
+                });
+            } else if (type === "error") {
+                statusEl.css({
+                    "background": "rgba(231, 76, 60, 0.2)", 
+                    "border-color": "#e74c3c",
+                    "color": "white"
+                });
+            } else {
+                statusEl.css({
+                    "background": "rgba(52, 152, 219, 0.2)",
+                    "border-color": "#3498db", 
+                    "color": "white"
+                });
+            }
+        }
+        
+        // Auto-refresh every 5 minutes
+        setInterval(() => {
+            console.log("Auto-refreshing data...");
+            fetchAndDisplay(currentSport);
+        }, 5 * 60 * 1000);
+        
+        // Add refresh button functionality
+        $(document).on("keydown", function(e) {
+            if (e.key === "F5" || (e.ctrlKey && e.key === "r")) {
+                e.preventDefault();
+                fetchAndDisplay(currentSport);
+            }
+        });
+    </script>
+</body>
+</html>
