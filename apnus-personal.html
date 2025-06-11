@@ -75,6 +75,12 @@
             box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
         }
         
+        .refresh-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
         .status {
             display: flex;
             align-items: center;
@@ -121,7 +127,7 @@
         
         .card-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 15px;
         }
@@ -258,6 +264,50 @@
             opacity: 0.9;
         }
         
+        .api-config {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .api-config input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .api-config button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #f8f9fa;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s ease;
+            width: 0;
+        }
+        
         @media (max-width: 768px) {
             .opportunities-grid {
                 grid-template-columns: 1fr;
@@ -278,21 +328,31 @@
     <div class="container">
         <div class="header">
             <h1><i class="fas fa-chart-line"></i> Apnus Personal</h1>
-            <p>MLB Positive Expected Value Opportunities</p>
+            <p>MLB Positive Expected Value Opportunities - Live Data</p>
         </div>
         
         <div class="controls">
-            <button class="refresh-btn" onclick="loadEVData()">
+            <button class="refresh-btn" onclick="findEVOpportunities()" id="refreshBtn">
                 <i class="fas fa-sync-alt"></i>
-                Refresh Data
+                Find EV Opportunities
             </button>
             <div class="status" id="status">
                 <i class="fas fa-clock"></i>
-                <span>Ready to load data</span>
+                <span>Ready to scan for opportunities</span>
             </div>
         </div>
         
         <div class="content">
+            <div class="api-config">
+                <i class="fas fa-key"></i>
+                <input type="password" id="apiKey" placeholder="Enter your API key here" value="YOUR_API_KEY_HERE">
+                <button onclick="saveApiKey()">Save Key</button>
+            </div>
+            
+            <div class="progress-bar" id="progressBar" style="display: none;">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
             <div class="summary-stats" id="summaryStats" style="display: none;">
                 <div class="stat-item">
                     <div class="stat-number" id="totalOpportunities">0</div>
@@ -307,80 +367,286 @@
                     <div class="stat-label">Best EV</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-number" id="totalSportsbooks">0</div>
-                    <div class="stat-label">Unique Sportsbooks</div>
+                    <div class="stat-number" id="totalGames">0</div>
+                    <div class="stat-label">Games Analyzed</div>
                 </div>
             </div>
             
             <div class="opportunities-grid" id="opportunitiesGrid">
                 <div class="no-data">
                     <i class="fas fa-search"></i>
-                    <h3>Click "Refresh Data" to load opportunities</h3>
-                    <p>This will fetch the latest MLB positive EV opportunities</p>
+                    <h3>Click "Find EV Opportunities" to scan live odds</h3>
+                    <p>This will analyze current MLB games and find positive expected value bets</p>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // This would connect to your actual EV data source
-        // For now, I'll create a demo version that you can adapt
-        
-        async function loadEVData() {
-            const statusEl = document.getElementById('status');
-            const gridEl = document.getElementById('opportunitiesGrid');
-            
-            // Update status to loading
-            statusEl.className = 'status loading';
-            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Loading opportunities...</span>';
-            
-            try {
-                // This is where you'd call your actual EV finder API or run the Python script
-                // For demo purposes, I'll simulate the data structure your script produces
-                
-                // You would replace this with:
-                // const response = await fetch('YOUR_EV_API_ENDPOINT');
-                // const data = await response.json();
-                
-                const demoData = await simulateEVData(); // Remove this and use real data
-                
-                if (demoData.length === 0) {
-                    showNoData();
-                    return;
-                }
-                
-                displayOpportunities(demoData);
-                updateSummaryStats(demoData);
-                
-                statusEl.className = 'status success';
-                statusEl.innerHTML = `<i class="fas fa-check-circle"></i><span>Loaded ${demoData.length} opportunities</span>`;
-                
-            } catch (error) {
-                console.error('Error loading EV data:', error);
-                statusEl.className = 'status error';
-                statusEl.innerHTML = '<i class="fas fa-exclamation-circle"></i><span>Error loading data</span>';
-                showNoData();
+        // Configuration
+        const CONFIG = {
+            // Add your sportsbook API endpoints here
+            oddsApiUrl: 'https://api.the-odds-api.com/v4/sports/baseball_mlb/odds',
+            pinnacleApiUrl: 'https://api.pinnacle.com/v1/fixtures', // Example
+            // Add more sportsbook APIs as needed
+        };
+
+        let API_KEY = 'YOUR_API_KEY_HERE'; // Will be updated by user input
+        let currentOpportunities = [];
+
+        function saveApiKey() {
+            const keyInput = document.getElementById('apiKey');
+            API_KEY = keyInput.value.trim();
+            if (API_KEY) {
+                alert('API key saved! You can now find EV opportunities.');
             }
         }
-        
+
+        async function findEVOpportunities() {
+            if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') {
+                alert('Please enter your API key first!');
+                return;
+            }
+
+            const statusEl = document.getElementById('status');
+            const refreshBtn = document.getElementById('refreshBtn');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+
+            // Update UI
+            refreshBtn.disabled = true;
+            statusEl.className = 'status loading';
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Scanning for opportunities...</span>';
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+
+            try {
+                // Step 1: Get MLB games and odds
+                updateProgress(20, 'Fetching MLB games...');
+                const gamesData = await fetchMLBGames();
+                
+                // Step 2: Get odds from multiple sportsbooks
+                updateProgress(40, 'Collecting odds from sportsbooks...');
+                const allOdds = await fetchAllSportsbooks(gamesData);
+                
+                // Step 3: Calculate EV for each opportunity
+                updateProgress(60, 'Calculating expected values...');
+                const evOpportunities = calculateEVOpportunities(allOdds);
+                
+                // Step 4: Filter and sort opportunities
+                updateProgress(80, 'Filtering best opportunities...');
+                const filteredOpportunities = filterBestOpportunities(evOpportunities);
+                
+                updateProgress(100, 'Complete!');
+                
+                if (filteredOpportunities.length === 0) {
+                    showNoData('No positive EV opportunities found at this time');
+                    statusEl.className = 'status success';
+                    statusEl.innerHTML = '<i class="fas fa-check-circle"></i><span>Scan complete - No opportunities found</span>';
+                } else {
+                    displayOpportunities(filteredOpportunities);
+                    updateSummaryStats(filteredOpportunities, gamesData.length);
+                    statusEl.className = 'status success';
+                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i><span>Found ${filteredOpportunities.length} opportunities!</span>`;
+                }
+
+            } catch (error) {
+                console.error('Error finding EV opportunities:', error);
+                statusEl.className = 'status error';
+                statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i><span>Error: ${error.message}</span>`;
+                showNoData('Failed to load data. Check console for details.');
+            } finally {
+                refreshBtn.disabled = false;
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        function updateProgress(percent, message) {
+            const progressFill = document.getElementById('progressFill');
+            const statusEl = document.getElementById('status');
+            
+            progressFill.style.width = percent + '%';
+            statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${message}</span>`;
+        }
+
+        async function fetchMLBGames() {
+            try {
+                const response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
+                
+                if (!response.ok) {
+                    throw new Error(`Odds API request failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                throw new Error(`Failed to fetch MLB games: ${error.message}`);
+            }
+        }
+
+        async function fetchAllSportsbooks(gamesData) {
+            // This function would fetch from multiple sportsbooks
+            // For now, we'll use the odds from the initial API call
+            const allOdds = {};
+            
+            gamesData.forEach(game => {
+                const gameKey = `${game.home_team}_vs_${game.away_team}`;
+                allOdds[gameKey] = {
+                    game_info: {
+                        home_team: game.home_team,
+                        away_team: game.away_team,
+                        commence_time: game.commence_time,
+                        sport_title: game.sport_title
+                    },
+                    bookmakers: game.bookmakers || []
+                };
+            });
+            
+            return allOdds;
+        }
+
+        function calculateEVOpportunities(allOdds) {
+            const opportunities = [];
+            
+            Object.entries(allOdds).forEach(([gameKey, gameData]) => {
+                const bookmakers = gameData.bookmakers;
+                
+                if (bookmakers.length < 2) return; // Need at least 2 bookmakers for comparison
+                
+                // Calculate EV for each market
+                ['h2h', 'spreads', 'totals'].forEach(marketType => {
+                    const marketOpportunities = findMarketOpportunities(gameData, marketType, bookmakers);
+                    opportunities.push(...marketOpportunities);
+                });
+            });
+            
+            return opportunities;
+        }
+
+        function findMarketOpportunities(gameData, marketType, bookmakers) {
+            const opportunities = [];
+            const marketData = {};
+            
+            // Collect odds for this market from all bookmakers
+            bookmakers.forEach(bookmaker => {
+                const market = bookmaker.markets.find(m => m.key === marketType);
+                if (!market) return;
+                
+                market.outcomes.forEach(outcome => {
+                    const key = `${outcome.name}_${outcome.point || ''}`;
+                    if (!marketData[key]) {
+                        marketData[key] = {
+                            name: outcome.name,
+                            point: outcome.point,
+                            odds: []
+                        };
+                    }
+                    marketData[key].odds.push({
+                        bookmaker: bookmaker.title,
+                        price: outcome.price
+                    });
+                });
+            });
+            
+            // Calculate EV for each outcome
+            Object.entries(marketData).forEach(([outcomeKey, outcomeData]) => {
+                if (outcomeData.odds.length < 2) return;
+                
+                const ev = calculateExpectedValue(outcomeData.odds);
+                
+                if (ev.ev_pct > 0) { // Only positive EV
+                    opportunities.push({
+                        game: `${gameData.game_info.away_team} at ${gameData.game_info.home_team}`,
+                        start: new Date(gameData.game_info.commence_time).toLocaleString(),
+                        market: marketType.toUpperCase(),
+                        line_display: `${outcomeData.name}${outcomeData.point ? ` ${outcomeData.point > 0 ? '+' : ''}${outcomeData.point}` : ''}`,
+                        best_price: ev.best_price,
+                        best_book: ev.best_book,
+                        worst_price: ev.worst_price,
+                        worst_book: ev.worst_book,
+                        ev_pct: ev.ev_pct,
+                        value_score: ev.value_score,
+                        num_books: outcomeData.odds.length,
+                        implied_prob: ev.implied_prob
+                    });
+                }
+            });
+            
+            return opportunities;
+        }
+
+        function calculateExpectedValue(odds) {
+            // Find best and worst odds
+            const sortedOdds = odds.sort((a, b) => b.price - a.price);
+            const bestOdds = sortedOdds[0];
+            const worstOdds = sortedOdds[sortedOdds.length - 1];
+            
+            // Calculate implied probabilities
+            const impliedProbs = odds.map(odd => {
+                const price = odd.price;
+                return price > 0 ? 100 / (price + 100) : Math.abs(price) / (Math.abs(price) + 100);
+            });
+            
+            // Use average implied probability as "true" probability
+            const avgImpliedProb = impliedProbs.reduce((sum, prob) => sum + prob, 0) / impliedProbs.length;
+            
+            // Calculate EV using best odds
+            const bestPrice = bestOdds.price;
+            const bestImpliedProb = bestPrice > 0 ? 100 / (bestPrice + 100) : Math.abs(bestPrice) / (Math.abs(bestPrice) + 100);
+            
+            // EV = (True Probability × Payout) - (1 - True Probability)
+            const payout = bestPrice > 0 ? bestPrice / 100 : 100 / Math.abs(bestPrice);
+            const ev = (avgImpliedProb * payout) - (1 - avgImpliedProb);
+            const evPercentage = ev * 100;
+            
+            // Value score considers both EV and odds difference
+            const oddsDifference = Math.abs(bestOdds.price - worstOdds.price);
+            const valueScore = evPercentage * (1 + oddsDifference / 1000);
+            
+            return {
+                ev_pct: parseFloat(evPercentage.toFixed(2)),
+                best_price: bestOdds.price,
+                best_book: bestOdds.bookmaker,
+                worst_price: worstOdds.price,
+                worst_book: worstOdds.bookmaker,
+                value_score: parseFloat(valueScore.toFixed(2)),
+                implied_prob: parseFloat((avgImpliedProb * 100).toFixed(2))
+            };
+        }
+
+        function filterBestOpportunities(opportunities) {
+            // Filter for positive EV only and sort by EV percentage
+            return opportunities
+                .filter(opp => opp.ev_pct > 0)
+                .sort((a, b) => b.ev_pct - a.ev_pct)
+                .slice(0, 50); // Limit to top 50 opportunities
+        }
+
         function displayOpportunities(opportunities) {
             const grid = document.getElementById('opportunitiesGrid');
             grid.innerHTML = '';
+            
+            currentOpportunities = opportunities;
             
             opportunities.forEach((opp, index) => {
                 const card = createOpportunityCard(opp, index + 1);
                 grid.appendChild(card);
             });
         }
-        
+
         function createOpportunityCard(opp, number) {
             const card = document.createElement('div');
             card.className = 'opportunity-card';
             
+            const bestPriceDisplay = formatOdds(opp.best_price);
+            const worstPriceDisplay = formatOdds(opp.worst_price);
+            
             card.innerHTML = `
                 <div class="card-header">
                     <div class="opportunity-number">#${number}</div>
-                    <div class="ev-percentage">${opp.ev_pct}%</div>
+                    <div class="ev-percentage">+${opp.ev_pct}%</div>
                 </div>
                 
                 <div class="game-info">${opp.game}</div>
@@ -399,90 +665,80 @@
                 
                 <div class="odds-comparison">
                     <div class="best-odds">
-                        <i class="fas fa-arrow-up"></i> Best: ${opp.best_price > 0 ? '+' : ''}${opp.best_price} at ${opp.best_book}
+                        <i class="fas fa-arrow-up"></i> Best: ${bestPriceDisplay} at ${opp.best_book}
                     </div>
                     <div class="worst-odds">
-                        <i class="fas fa-arrow-down"></i> Worst: ${opp.worst_price > 0 ? '+' : ''}${opp.worst_price} at ${opp.worst_book}
+                        <i class="fas fa-arrow-down"></i> Worst: ${worstPriceDisplay} at ${opp.worst_book}
                     </div>
                 </div>
                 
                 <div class="metrics">
-                    <div class="value-score">Score: ${opp.value_score}</div>
+                    <div class="value-score">EV: +${opp.ev_pct}%</div>
                     <div class="sportsbook-count">
-                        <i class="fas fa-store"></i> ${opp.num_books} sportsbooks
+                        <i class="fas fa-store"></i> ${opp.num_books} books
                     </div>
                 </div>
             `;
             
             return card;
         }
-        
-        function updateSummaryStats(opportunities) {
+
+        function formatOdds(odds) {
+            if (typeof odds !== 'number') return odds || 'N/A';
+            return odds > 0 ? `+${odds}` : `${odds}`;
+        }
+
+        function updateSummaryStats(opportunities, totalGames) {
             const summaryEl = document.getElementById('summaryStats');
             summaryEl.style.display = 'block';
             
             const totalOpps = opportunities.length;
             const avgEV = (opportunities.reduce((sum, opp) => sum + opp.ev_pct, 0) / totalOpps).toFixed(1);
             const bestEV = Math.max(...opportunities.map(opp => opp.ev_pct)).toFixed(1);
-            const uniqueBooks = new Set(opportunities.map(opp => opp.best_book)).size;
             
             document.getElementById('totalOpportunities').textContent = totalOpps;
             document.getElementById('avgEV').textContent = avgEV + '%';
             document.getElementById('bestEV').textContent = bestEV + '%';
-            document.getElementById('totalSportsbooks').textContent = uniqueBooks;
+            document.getElementById('totalGames').textContent = totalGames || 0;
         }
-        
-        function showNoData() {
+
+        function showNoData(message = 'No positive EV opportunities found') {
             const grid = document.getElementById('opportunitiesGrid');
             grid.innerHTML = `
                 <div class="no-data">
                     <i class="fas fa-info-circle"></i>
-                    <h3>No positive EV opportunities found</h3>
-                    <p>Check back later or try refreshing the data</p>
+                    <h3>${message}</h3>
+                    <p>Try refreshing or check back later when more games are available</p>
                 </div>
             `;
             document.getElementById('summaryStats').style.display = 'none';
         }
-        
-        // Demo data simulator - replace this with your actual data fetching
-        async function simulateEVData() {
-            // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            // This structure matches your EV finder output
-            return [
-                {
-                    game: "Chicago White Sox at Houston Astros",
-                    start: "2025-06-10 08:11 PM NY",
-                    market: "SPREADS",
-                    line_display: "Chicago White Sox @ -2.5",
-                    best_price: 340,
-                    best_book: "Ladbrokes",
-                    worst_price: -159,
-                    worst_book: "BetRivers",
-                    ev_pct: 125.28,
-                    value_score: 102.07,
-                    num_books: 15
-                },
-                {
-                    game: "New York Yankees at Boston Red Sox",
-                    start: "2025-06-10 07:05 PM NY",
-                    market: "TOTALS",
-                    line_display: "Over 9.5",
-                    best_price: 105,
-                    best_book: "Pinnacle",
-                    worst_price: -115,
-                    worst_book: "DraftKings",
-                    ev_pct: 4.25,
-                    value_score: 8.50,
-                    num_books: 12
-                }
-                // Add more demo data as needed
-            ];
+
+        // Auto-refresh every 5 minutes
+        setInterval(() => {
+            if (currentOpportunities.length > 0) {
+                findEVOpportunities();
+            }
+        }, 300000); // 5 minutes
+
+        // Load saved API key on page load
+        window.addEventListener('load', function() {
+            const savedKey = localStorage.getItem('ev_finder_api_key');
+            if (savedKey) {
+                document.getElementById('apiKey').value = savedKey;
+                API_KEY = savedKey;
+            }
+        });
+
+        // Save API key to localStorage
+        function saveApiKey() {
+            const keyInput = document.getElementById('apiKey');
+            API_KEY = keyInput.value.trim();
+            if (API_KEY) {
+                localStorage.setItem('ev_finder_api_key', API_KEY);
+                alert('API key saved! You can now find EV opportunities.');
+            }
         }
-        
-        // Auto-load data when page loads
-        window.addEventListener('load', loadEVData);
     </script>
 </body>
 </html>
