@@ -264,34 +264,6 @@
             opacity: 0.9;
         }
         
-        .api-config {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .api-config input {
-            flex: 1;
-            padding: 8px 12px;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .api-config button {
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        
         .progress-bar {
             width: 100%;
             height: 4px;
@@ -301,6 +273,11 @@
             margin-bottom: 20px;
         }
         
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0ස
+
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #28a745, #20c997);
@@ -343,12 +320,6 @@
         </div>
         
         <div class="content">
-            <div class="api-config">
-                <i class="fas fa-key"></i>
-                <input type="password" id="apiKey" placeholder="Enter your API key here" value="YOUR_API_KEY_HERE">
-                <button onclick="saveApiKey()">Save Key</button>
-            </div>
-            
             <div class="progress-bar" id="progressBar" style="display: none;">
                 <div class="progress-fill" id="progressFill"></div>
             </div>
@@ -375,7 +346,7 @@
             <div class="opportunities-grid" id="opportunitiesGrid">
                 <div class="no-data">
                     <i class="fas fa-search"></i>
-                    <h3>Click "Find EV Opportunities" to scan live odds</h3>
+                    <h3>Click67 "Find EV Opportunities" to scan live odds</h3>
                     <p>This will analyze current MLB games and find positive expected value bets</p>
                 </div>
             </div>
@@ -385,29 +356,15 @@
     <script>
         // Configuration
         const CONFIG = {
-            // Add your sportsbook API endpoints here
             oddsApiUrl: 'https://api.the-odds-api.com/v4/sports/baseball_mlb/odds',
-            pinnacleApiUrl: 'https://api.pinnacle.com/v1/fixtures', // Example
-            // Add more sportsbook APIs as needed
+            pinnacleApiUrl: 'https://api.pinnacle.com/v1/fixtures',
+            PRIMARY_API_KEY: 'a6792f346ad81e83198fe36df9091cfc',
+            BACKUP_API_KEY: '05340b9f6a1e23cb603c21d2fb14c1c3'
         };
 
-        let API_KEY = 'YOUR_API_KEY_HERE'; // Will be updated by user input
         let currentOpportunities = [];
 
-        function saveApiKey() {
-            const keyInput = document.getElementById('apiKey');
-            API_KEY = keyInput.value.trim();
-            if (API_KEY) {
-                alert('API key saved! You can now find EV opportunities.');
-            }
-        }
-
         async function findEVOpportunities() {
-            if (!API_KEY || API_KEY === 'YOUR_API_KEY_HERE') {
-                alert('Please enter your API key first!');
-                return;
-            }
-
             const statusEl = document.getElementById('status');
             const refreshBtn = document.getElementById('refreshBtn');
             const progressBar = document.getElementById('progressBar');
@@ -472,23 +429,34 @@
         }
 
         async function fetchMLBGames() {
+            let response;
             try {
-                const response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
+                response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${CONFIG.PRIMARY_API_KEY}®ions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
                 
                 if (!response.ok) {
-                    throw new Error(`Odds API request failed: ${response.status}`);
+                    throw new Error(`Primary API key failed: ${response.status}`);
                 }
                 
                 const data = await response.json();
                 return data;
             } catch (error) {
-                throw new Error(`Failed to fetch MLB games: ${error.message}`);
+                console.warn('Primary API key failed, trying backup key:', error);
+                try {
+                    response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${CONFIG.BACKUP_API_KEY}®ions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`Backup API key failed: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    return data;
+                } catch (backupError) {
+                    throw new Error(`Failed to fetch MLB games: ${backupError.message}`);
+                }
             }
         }
 
         async function fetchAllSportsbooks(gamesData) {
-            // This function would fetch from multiple sportsbooks
-            // For now, we'll use the odds from the initial API call
             const allOdds = {};
             
             gamesData.forEach(game => {
@@ -513,9 +481,8 @@
             Object.entries(allOdds).forEach(([gameKey, gameData]) => {
                 const bookmakers = gameData.bookmakers;
                 
-                if (bookmakers.length < 2) return; // Need at least 2 bookmakers for comparison
+                if (bookmakers.length < 2) return;
                 
-                // Calculate EV for each market
                 ['h2h', 'spreads', 'totals'].forEach(marketType => {
                     const marketOpportunities = findMarketOpportunities(gameData, marketType, bookmakers);
                     opportunities.push(...marketOpportunities);
@@ -529,7 +496,6 @@
             const opportunities = [];
             const marketData = {};
             
-            // Collect odds for this market from all bookmakers
             bookmakers.forEach(bookmaker => {
                 const market = bookmaker.markets.find(m => m.key === marketType);
                 if (!market) return;
@@ -550,13 +516,12 @@
                 });
             });
             
-            // Calculate EV for each outcome
             Object.entries(marketData).forEach(([outcomeKey, outcomeData]) => {
                 if (outcomeData.odds.length < 2) return;
                 
                 const ev = calculateExpectedValue(outcomeData.odds);
                 
-                if (ev.ev_pct > 0) { // Only positive EV
+                if (ev.ev_pct > 0) {
                     opportunities.push({
                         game: `${gameData.game_info.away_team} at ${gameData.game_info.home_team}`,
                         start: new Date(gameData.game_info.commence_time).toLocaleString(),
@@ -578,30 +543,24 @@
         }
 
         function calculateExpectedValue(odds) {
-            // Find best and worst odds
             const sortedOdds = odds.sort((a, b) => b.price - a.price);
             const bestOdds = sortedOdds[0];
             const worstOdds = sortedOdds[sortedOdds.length - 1];
             
-            // Calculate implied probabilities
             const impliedProbs = odds.map(odd => {
                 const price = odd.price;
                 return price > 0 ? 100 / (price + 100) : Math.abs(price) / (Math.abs(price) + 100);
             });
             
-            // Use average implied probability as "true" probability
             const avgImpliedProb = impliedProbs.reduce((sum, prob) => sum + prob, 0) / impliedProbs.length;
             
-            // Calculate EV using best odds
             const bestPrice = bestOdds.price;
             const bestImpliedProb = bestPrice > 0 ? 100 / (bestPrice + 100) : Math.abs(bestPrice) / (Math.abs(bestPrice) + 100);
             
-            // EV = (True Probability × Payout) - (1 - True Probability)
             const payout = bestPrice > 0 ? bestPrice / 100 : 100 / Math.abs(bestPrice);
             const ev = (avgImpliedProb * payout) - (1 - avgImpliedProb);
             const evPercentage = ev * 100;
             
-            // Value score considers both EV and odds difference
             const oddsDifference = Math.abs(bestOdds.price - worstOdds.price);
             const valueScore = evPercentage * (1 + oddsDifference / 1000);
             
@@ -610,18 +569,17 @@
                 best_price: bestOdds.price,
                 best_book: bestOdds.bookmaker,
                 worst_price: worstOdds.price,
-                worst_book: worstOdds.bookmaker,
+                worst_book: bestOdds.bookmaker,
                 value_score: parseFloat(valueScore.toFixed(2)),
                 implied_prob: parseFloat((avgImpliedProb * 100).toFixed(2))
             };
         }
 
         function filterBestOpportunities(opportunities) {
-            // Filter for positive EV only and sort by EV percentage
             return opportunities
                 .filter(opp => opp.ev_pct > 0)
                 .sort((a, b) => b.ev_pct - a.ev_pct)
-                .slice(0, 50); // Limit to top 50 opportunities
+                .slice(0, 50);
         }
 
         function displayOpportunities(opportunities) {
@@ -719,26 +677,7 @@
             if (currentOpportunities.length > 0) {
                 findEVOpportunities();
             }
-        }, 300000); // 5 minutes
-
-        // Load saved API key on page load
-        window.addEventListener('load', function() {
-            const savedKey = localStorage.getItem('ev_finder_api_key');
-            if (savedKey) {
-                document.getElementById('apiKey').value = savedKey;
-                API_KEY = savedKey;
-            }
-        });
-
-        // Save API key to localStorage
-        function saveApiKey() {
-            const keyInput = document.getElementById('apiKey');
-            API_KEY = keyInput.value.trim();
-            if (API_KEY) {
-                localStorage.setItem('ev_finder_api_key', API_KEY);
-                alert('API key saved! You can now find EV opportunities.');
-            }
-        }
+        }, 300000);
     </script>
 </body>
 </html>
