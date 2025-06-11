@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" />
 
   <style>
+    /* Your existing CSS here (unchanged for brevity) */
     * {
       margin: 0;
       padding: 0;
@@ -266,7 +267,12 @@
       <p>Live Betting Analysis & Opportunity Finder</p>
     </div>
     
-    <div class="button-bar"></div>
+    <div class="button-bar">
+      <!-- Existing filter buttons can go here -->
+
+      <!-- New Subpage Button -->
+      <button class="filter-btn" id="subpageBtn">Go to Subpage</button>
+    </div>
     
     <div class="table-container">
       <div class="loading" id="loading" style="display:none;">Loading betting data...</div>
@@ -284,5 +290,12 @@
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <!-- Custom JS -->
   <script src="scripts/app.js"></script>
+
+  <script>
+    // Navigate to subpage on button click
+    document.getElementById('subpageBtn').addEventListener('click', () => {
+      window.location.href = '/subpage.html'; // Change this URL to your actual subpage path
+    });
+  </script>
 </body>
 </html>
