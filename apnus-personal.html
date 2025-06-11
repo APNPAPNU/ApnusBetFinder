@@ -276,11 +276,6 @@
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #28a745, #20c997);
-            transition: width 0ස
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #28a745, #20c997);
             transition: width 0.3s ease;
             width: 0;
         }
@@ -346,7 +341,7 @@
             <div class="opportunities-grid" id="opportunitiesGrid">
                 <div class="no-data">
                     <i class="fas fa-search"></i>
-                    <h3>Click67 "Find EV Opportunities" to scan live odds</h3>
+                    <h3>Click "Find EV Opportunities" to scan live odds</h3>
                     <p>This will analyze current MLB games and find positive expected value bets</p>
                 </div>
             </div>
@@ -431,7 +426,7 @@
         async function fetchMLBGames() {
             let response;
             try {
-                response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${CONFIG.PRIMARY_API_KEY}®ions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
+                response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${CONFIG.PRIMARY_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
                 
                 if (!response.ok) {
                     throw new Error(`Primary API key failed: ${response.status}`);
@@ -442,7 +437,7 @@
             } catch (error) {
                 console.warn('Primary API key failed, trying backup key:', error);
                 try {
-                    response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${CONFIG.BACKUP_API_KEY}®ions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
+                    response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${CONFIG.BACKUP_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
                     
                     if (!response.ok) {
                         throw new Error(`Backup API key failed: ${response.status}`);
@@ -569,7 +564,7 @@
                 best_price: bestOdds.price,
                 best_book: bestOdds.bookmaker,
                 worst_price: worstOdds.price,
-                worst_book: bestOdds.bookmaker,
+                worst_book: worstOdds.bookmaker,
                 value_score: parseFloat(valueScore.toFixed(2)),
                 implied_prob: parseFloat((avgImpliedProb * 100).toFixed(2))
             };
@@ -651,8 +646,8 @@
             summaryEl.style.display = 'block';
             
             const totalOpps = opportunities.length;
-            const avgEV = (opportunities.reduce((sum, opp) => sum + opp.ev_pct, 0) / totalOpps).toFixed(1);
-            const bestEV = Math.max(...opportunities.map(opp => opp.ev_pct)).toFixed(1);
+            const avgEV = opportunities.length > 0 ? (opportunities.reduce((sum, opp) => sum + opp.ev_pct, 0) / totalOpps).toFixed(1) : 0;
+            const bestEV = opportunities.length > 0 ? Math.max(...opportunities.map(opp => opp.ev_pct)).toFixed(1) : 0;
             
             document.getElementById('totalOpportunities').textContent = totalOpps;
             document.getElementById('avgEV').textContent = avgEV + '%';
