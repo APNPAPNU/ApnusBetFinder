@@ -120,7 +120,7 @@ async function fetchAndDisplay(sport) {
     "odd_timestamp",
     "sport",
     "game_date",
-    "game_id",
+    "game_id",  // Keep game_id in data but don't display it
     "market_id",
     "outcome_id",
     "has_alt",
@@ -144,7 +144,7 @@ async function fetchAndDisplay(sport) {
     data: col
   }));
 
-  // Filter each row to only include desired columns
+  // Filter each row to only include desired columns (but keep game_id in the original data)
   const filteredRows = allRows.map(row => {
     const filteredRow = {};
     filteredCols.forEach(col => {
@@ -164,6 +164,19 @@ async function fetchAndDisplay(sport) {
       search: "",
       emptyTable: "No betting data found"
     },
-    columnDefs: [{ targets: "_all", className: "dt-body-left" }]
+    columnDefs: [{ targets: "_all", className: "dt-body-left" }],
+    createdRow: function(row, data, dataIndex) {
+      // Get the original row data which includes game_id
+      const originalRowData = allRows[dataIndex];
+      const gameId = originalRowData.game_id;
+      
+      // Make the row clickable and add cursor pointer style
+      $(row).css('cursor', 'pointer');
+      $(row).on('click', function() {
+        if (gameId) {
+          window.open(`https://www.oddsview.com/screen?bet=${gameId}`, '_blank');
+        }
+      });
+    }
   });
 }
