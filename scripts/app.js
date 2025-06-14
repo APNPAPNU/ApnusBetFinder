@@ -166,15 +166,15 @@ async function fetchAndDisplay(sport) {
     },
     columnDefs: [{ targets: "_all", className: "dt-body-left" }],
     createdRow: function(row, data, dataIndex) {
-      // Get the original row data which includes game_id
+      // Get the original row data which includes outcome_id
       const originalRowData = allRows[dataIndex];
-      const gameId = originalRowData.game_id;
+      const outcomeId = originalRowData.outcome_id;
       
       // Make the row clickable and add cursor pointer style
       $(row).css('cursor', 'pointer');
       $(row).on('click', function() {
-        if (gameId) {
-          window.open(`https://www.oddsview.com/screen?bet=${gameId}`, '_blank');
+        if (outcomeId) {
+          window.open(`https://www.oddsview.com/screen?bet=${outcomeId}`, '_blank');
         }
       });
     }
