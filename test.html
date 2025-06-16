@@ -368,8 +368,8 @@
     <script>
         // Configuration - Using proxy to avoid CORS issues
         const CONFIG = {
-            marketsUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/_next/data/_Owd9Pe9zClPGo9ZBiBYQ/mlb/sharp-report.json?league=mlb'),
-            gamesUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/_next/data/_Owd9Pe9zClPGo9ZBiBYQ/public-betting.json')
+            marketsUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/mlb/sharp-report'),
+            gamesUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/public-betting')
         };
 
         let currentGames = [];
@@ -390,15 +390,31 @@
             try {
                 // Step 1: Fetch markets data
                 updateProgress(25, 'Fetching MLB market data...');
-                const marketsResponse = await fetch(CONFIG.marketsUrl);
+                const marketsResponse = await fetch(CONFIG.marketsUrl, { mode: 'cors' });
+                if (!marketsResponse.ok) {
+                    throw new Error(`HTTP error! Status: ${marketsResponse.status}`);
+                }
                 const marketsData = await marketsResponse.json();
-                const parsedMarketsData = JSON.parse(marketsData.contents);
+                let parsedMarketsData;
+                try {
+                    parsedMarketsData = JSON.parse(marketsData.contents);
+                } catch (e) {
+                    throw new Error('Invalid JSON response from markets API');
+                }
                 
                 // Step 2: Fetch games data
                 updateProgress(50, 'Fetching games and team data...');
-                const gamesResponse = await fetch(CONFIG.gamesUrl);
+                const gamesResponse = await fetch(CONFIG.gamesUrl, { mode: 'cors' });
+                if (!gamesResponse.ok) {
+                    throw new Error(`HTTP error! Status: ${gamesResponse.status}`);
+                }
                 const gamesData = await gamesResponse.json();
-                const parsedGamesData = JSON.parse(gamesData.contents);
+                let parsedGamesData;
+                try {
+                    parsedGamesData = JSON.parse(gamesData.contents);
+                } catch (e) {
+                    throw new Error('Invalid JSON response from games API');
+                }
                 
                 // Step 3: Process data
                 updateProgress(75, 'Processing betting outcomes...');
@@ -426,8 +442,8 @@
             } catch (error) {
                 console.error('Error fetching sharp report:', error);
                 statusEl.className = 'status error';
-                statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i><span>Error: ${error.message}</span>`;
-                showNoData('Failed to load data. This may be due to CORS restrictions or API changes.');
+                statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i><span>Error: ${error.message}. The Action Network API endpoints may have changed. Please check the URLs.</span>`;
+                showNoData('Failed to load data. The Action Network API endpoints may have changed or are temporarily unavailable.');
             } finally {
                 fetchBtn.disabled = false;
                 setTimeout(() => {
