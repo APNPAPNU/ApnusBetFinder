@@ -3,799 +3,286 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MLB Sharp Report - Line Movement Tracker</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-        
-        .controls {
-            padding: 20px 30px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-        
-        .fetch-btn {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-        }
-        
-        .fetch-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
-        }
-        
-        .fetch-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 600;
-        }
-        
-        .status.loading {
-            color: #ffc107;
-        }
-        
-        .status.success {
-            color: #28a745;
-        }
-        
-        .status.error {
-            color: #dc3545;
-        }
-        
-        .content {
-            padding: 30px;
-        }
-        
-        .games-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .game-card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            padding: 20px;
-            border-left: 5px solid #ff6b6b;
-            transition: transform 0.3s ease;
-        }
-        
-        .game-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-        }
-        
-        .game-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f8f9fa;
-        }
-        
-        .team-matchup {
-            font-size: 1.3rem;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-        
-        .rlm-indicator {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        
-        .betting-sides {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .side-info {
-            background: #f8f9fa;
-            padding: 12px;
-            border-radius: 8px;
-        }
-        
-        .side-label {
-            font-size: 0.8rem;
-            color: #6c757d;
-            text-transform: uppercase;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .side-details {
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        .public-side {
-            border-left: 4px solid #28a745;
-        }
-        
-        .fade-side {
-            border-left: 4px solid #dc3545;
-        }
-        
-        .line-movements {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-        
-        .movement-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #2c3e50;
-        }
-        
-        .movement-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-        }
-        
-        .favorable {
-            color: #28a745;
-        }
-        
-        .unfavorable {
-            color: #dc3545;
-        }
-        
-        .odds-display {
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-        }
-        
-        .best-lines {
-            background: #f0f8ff;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #b3d9ff;
-        }
-        
-        .best-line-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-        }
-        
-        .sportsbook-name {
-            color: #0066cc;
-            font-weight: 600;
-        }
-        
-        .no-data {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6c757d;
-        }
-        
-        .no-data i {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        
-        .summary-stats {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 30px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-        }
-        
-        .stat-item {
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 2rem;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: #f8f9fa;
-            border-radius: 2px;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #ff6b6b, #ee5a24);
-            transition: width 0.3s ease;
-            width: 0;
-        }
-        
-        @media (max-width: 768px) {
-            .games-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .betting-sides {
-                grid-template-columns: 1fr;
-            }
-            
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-        }
-    </style>
+    <title>MLB Line Movement Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1><i class="fas fa-chart-line"></i> MLB Sharp Report</h1>
-            <p>Live Line Movement & Reverse Line Movement Detection</p>
-        </div>
-        
-        <div class="controls">
-            <button class="fetch-btn" onclick="fetchSharpReport()" id="fetchBtn">
-                <i class="fas fa-download"></i>
-                Get Sharp Report Data
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-6">MLB Line Movement Report</h1>
+        <div class="flex justify-center mb-6">
+            <button id="fetchDataBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Fetch MLB Data
             </button>
-            <div class="status" id="status">
-                <i class="fas fa-clock"></i>
-                <span>Ready to fetch latest sharp report</span>
-            </div>
         </div>
-        
-        <div class="content">
-            <div class="progress-bar" id="progressBar" style="display: none;">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            
-            <div class="summary-stats" id="summaryStats" style="display: none;">
-                <div class="stat-item">
-                    <div class="stat-number" id="totalGames">0</div>
-                    <div class="stat-label">Games Analyzed</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="rlmCount">0</div>
-                    <div class="stat-label">RLM Detected</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="totalOutcomes">0</div>
-                    <div class="stat-label">Betting Outcomes</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="avgTickets">0%</div>
-                    <div class="stat-label">Avg Public %</div>
-                </div>
-            </div>
-            
-            <div class="games-grid" id="gamesGrid">
-                <div class="no-data">
-                    <i class="fas fa-baseball-ball"></i>
-                    <h3>Click "Get Sharp Report Data" to fetch live MLB data</h3>
-                    <p>This will analyze current games for line movements and sharp money indicators</p>
-                </div>
-            </div>
-        </div>
+        <div id="loading" class="hidden text-center text-gray-600">Loading...</div>
+        <div id="error" class="hidden text-center text-red-600"></div>
+        <div id="reportContainer" class="space-y-6"></div>
     </div>
 
     <script>
-        // Configuration - Using proxy to avoid CORS issues
-        const CONFIG = {
-            marketsUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/_next/data/[BUILD_ID]/mlb/sharp-report.json?league=mlb'),
-            gamesUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/_next/data/[BUILD_ID]/public-betting.json')
-        };
+        // Helper Functions
+        async function fetchJson(url, retries = 2) {
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+            const headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "Referer": "https://www.actionnetwork.com",
+                "Origin": "https://www.actionnetwork.com",
+            };
 
-        const HEADERS = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/javascript, */*; q=0.01",
-            "Referer": "https://www.actionnetwork.com",
-            "Origin": "https://www.actionnetwork.com"
-        };
-
-        let currentGames = [];
-
-        async function fetchSharpReport() {
-            const statusEl = document.getElementById('status');
-            const fetchBtn = document.getElementById('fetchBtn');
-            const progressBar = document.getElementById('progressBar');
-            const progressFill = document.getElementById('progressFill');
-
-            // Update UI
-            fetchBtn.disabled = true;
-            statusEl.className = 'status loading';
-            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Fetching sharp report data...</span>';
-            progressBar.style.display = 'block';
-            progressFill.style.width = '0%';
-
-            try {
-                // Step 1: Fetch markets data
-                updateProgress(25, 'Fetching MLB market data...');
-                const marketsResponse = await fetch(CONFIG.marketsUrl.replace('[BUILD_ID]', '_Owd9Pe9zClPGo9ZBiBYQ'), {
-                    method: 'GET',
-                    headers: HEADERS,
-                    mode: 'cors'
-                });
-                if (!marketsResponse.ok) {
-                    throw new Error(`HTTP error! Status: ${marketsResponse.status}`);
-                }
-                const marketsData = await marketsResponse.json();
-                let parsedMarketsData;
+            for (let attempt = 0; attempt <= retries; attempt++) {
                 try {
-                    parsedMarketsData = JSON.parse(marketsData.contents);
-                } catch (e) {
-                    console.error('Raw markets response:', marketsData.contents);
-                    throw new Error(`Invalid JSON response from markets API: ${e.message}`);
+                    const response = await fetch(proxyUrl + url, { headers });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return await response.json();
+                } catch (error) {
+                    if (attempt === retries) throw error;
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
                 }
-                
-                // Step 2: Fetch games data
-                updateProgress(50, 'Fetching games and team data...');
-                const gamesResponse = await fetch(CONFIG.gamesUrl.replace('[BUILD_ID]', '_Owd9Pe9zClPGo9ZBiBYQ'), {
-                    method: 'GET',
-                    headers: HEADERS,
-                    mode: 'cors'
-                });
-                if (!gamesResponse.ok) {
-                    throw new Error(`HTTP error! Status: ${gamesResponse.status}`);
-                }
-                const gamesData = await gamesResponse.json();
-                let parsedGamesData;
-                try {
-                    parsedGamesData = JSON.parse(gamesData.contents);
-                } catch (e) {
-                    console.error('Raw games response:', gamesData.contents);
-                    throw new Error(`Invalid JSON response from games API: ${e.message}`);
-                }
-                
-                // Step 3: Process data
-                updateProgress(75, 'Processing betting outcomes...');
-                const outcomes = extractOutcomes(parsedMarketsData);
-                const eventLookup = buildEventLookup(parsedGamesData);
-                const books = parsedMarketsData.pageProps?.allBooks || {};
-                
-                // Step 4: Combine and analyze
-                updateProgress(90, 'Analyzing line movements...');
-                const processedGames = processGameData(outcomes, eventLookup, books);
-                
-                updateProgress(100, 'Complete!');
-                
-                if (processedGames.length === 0) {
-                    showNoData('No MLB games with betting data found');
-                    statusEl.className = 'status success';
-                    statusEl.innerHTML = '<i class="fas fa-check-circle"></i><span>Data fetched - No games available</span>';
-                } else {
-                    displayGames(processedGames);
-                    updateSummaryStats(processedGames, outcomes.length);
-                    statusEl.className = 'status success';
-                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i><span>Analyzed ${processedGames.length} games!</span>`;
-                }
-
-            } catch (error) {
-                console.error('Error fetching sharp report:', error);
-                statusEl.className = 'status error';
-                statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i><span>Error: ${error.message}. Check console for raw response.</span>`;
-                showNoData('Failed to load data. The Action Network API endpoints may have changed or are temporarily unavailable. Check console for details.');
-            } finally {
-                fetchBtn.disabled = false;
-                setTimeout(() => {
-                    progressBar.style.display = 'none';
-                }, 1000);
             }
         }
 
-        function updateProgress(percent, message) {
-            const progressFill = document.getElementById('progressFill');
-            const statusEl = document.getElementById('status');
-            
-            progressFill.style.width = percent + '%';
-            statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${message}</span>`;
-        }
-
-        function extractOutcomes(obj) {
-            const outcomes = [];
-            
-            function recurse(obj) {
-                if (typeof obj === 'object' && obj !== null) {
-                    if (Array.isArray(obj)) {
-                        obj.forEach(item => recurse(item));
-                    } else {
-                        if (obj.outcome_id) {
-                            outcomes.push(obj);
-                        }
-                        Object.values(obj).forEach(value => recurse(value));
+        function extractOutcomes(obj, outcomes = []) {
+            if (typeof obj === 'object' && obj !== null) {
+                if ('outcome_id' in obj) {
+                    outcomes.push(obj);
+                } else {
+                    for (const value of Object.values(obj)) {
+                        extractOutcomes(value, outcomes);
                     }
                 }
+            } else if (Array.isArray(obj)) {
+                for (const item of obj) {
+                    extractOutcomes(item, outcomes);
+                }
             }
-            
-            recurse(obj);
             return outcomes;
         }
 
-        function buildEventLookup(obj) {
-            const eventLookup = {};
-            
-            function recurse(obj) {
-                if (typeof obj === 'object' && obj !== null) {
-                    if (Array.isArray(obj)) {
-                        obj.forEach(item => recurse(item));
-                    } else {
-                        if (obj.id && obj.home_team_id && obj.away_team_id && obj.teams) {
-                            const homeTeam = obj.teams.find(t => t.id === obj.home_team_id);
-                            const awayTeam = obj.teams.find(t => t.id === obj.away_team_id);
-                            
-                            if (homeTeam && awayTeam) {
-                                eventLookup[obj.id] = {
-                                    home_team: homeTeam.full_name,
-                                    away_team: awayTeam.full_name
-                                };
-                            }
+        function buildEventLookup(obj, eventLookup = {}) {
+            if (typeof obj === 'object' && obj !== null) {
+                if (Array.isArray(obj)) {
+                    for (const item of obj) {
+                        buildEventLookup(item, eventLookup);
+                    }
+                } else {
+                    if ('id' in obj && 'home_team_id' in obj && 'away_team_id' in obj && 'teams' in obj) {
+                        const home = obj.teams.find(t => t.id === obj.home_team_id);
+                        const away = obj.teams.find(t => t.id === obj.away_team_id);
+                        if (home && away) {
+                            eventLookup[obj.id] = {
+                                home_team: home.full_name,
+                                away_team: away.full_name
+                            };
                         }
-                        Object.values(obj).forEach(value => recurse(value));
+                    }
+                    for (const value of Object.values(obj)) {
+                        buildEventLookup(value, eventLookup);
                     }
                 }
             }
-            
-            recurse(obj);
             return eventLookup;
         }
 
-        function processGameData(outcomes, eventLookup, books) {
-            const gameMap = new Map();
-            
-            outcomes.forEach(outcome => {
-                const eventId = outcome.event_id;
-                const teamData = eventLookup[eventId];
-                
-                if (!teamData) return;
-                
-                if (!gameMap.has(eventId)) {
-                    gameMap.set(eventId, {
-                        event_id: eventId,
-                        home_team: teamData.home_team,
-                        away_team: teamData.away_team,
-                        outcomes: [],
-                        spread_data: {
-                            open: {},
-                            consensus: {},
-                            sportsbooks: []
-                        }
-                    });
+        function formatOdds(odds) {
+            return odds > 0 ? `+${odds.toFixed(1)}` : odds.toFixed(1);
+        }
+
+        function detectReverseLineMovement(openOdds, consensusOdds, ticketsPercent, side) {
+            const move = consensusOdds - openOdds;
+            if (side === 'fade' && move < 0) {
+                return { detected: true, type: 'fade_side_became_less_favorable', strength: ticketsPercent };
+            }
+            return { detected: false, type: null, strength: 0 };
+        }
+
+        function generateReport(data, eventLookup) {
+            const spreadData = data.filter(item => item.market_type === 'spread');
+            if (!spreadData.length) {
+                return ['<p>No spread market data found.</p>'];
+            }
+
+            const reportLines = [];
+            const groupedByEvent = {};
+            spreadData.forEach(item => {
+                if (!groupedByEvent[item.event_id]) {
+                    groupedByEvent[item.event_id] = [];
                 }
-                
-                const game = gameMap.get(eventId);
-                
-                const bookId = outcome.book_id;
-                const bookInfo = books[bookId];
-                const bookName = bookInfo?.display_name || `Book ${bookId}`;
-                
-                const processedOutcome = {
-                    ...outcome,
-                    book_name: bookName
-                };
-                
-                game.outcomes.push(processedOutcome);
-                
-                if (outcome.type === 'spread') {
-                    if (bookName.includes('Open')) {
-                        game.spread_data.open[outcome.side] = processedOutcome;
-                    } else if (bookName.includes('Consensus')) {
-                        game.spread_data.consensus[outcome.side] = processedOutcome;
-                    } else {
-                        game.spread_data.sportsbooks.push(processedOutcome);
+                groupedByEvent[item.event_id].push(item);
+            });
+
+            for (const [eventId, eventData] of Object.entries(groupedByEvent)) {
+                const homeTeam = eventLookup[eventId]?.home_team || 'Unknown';
+                const awayTeam = eventLookup[eventId]?.away_team || 'Unknown';
+
+                const openData = eventData.filter(d => d.book_id === 'Open');
+                const consensusData = eventData.filter(d => d.book_id === 'Consensus');
+                const sportsbookData = eventData.filter(d => !['Open', 'Consensus'].includes(d.book_id));
+
+                if (!openData.length || !consensusData.length) continue;
+
+                reportLines.push(`<div class="bg-white shadow-md rounded-lg p-6"><h2 class="text-xl font-semibold">${homeTeam} vs ${awayTeam} - SPREAD</h2>`);
+                reportLines.push('<hr class="my-2">');
+
+                const homeSide = consensusData.find(d => d.side.toLowerCase().includes('home'));
+                const awaySide = consensusData.find(d => d.side.toLowerCase().includes('away'));
+
+                if (!homeSide || !awaySide) continue;
+
+                const homeTickets = homeSide.tickets_percent || 0;
+                const homeMoney = homeSide.money_percent || 0;
+                const awayTickets = awaySide.tickets_percent || 0;
+                const awayMoney = awaySide.money_percent || 0;
+
+                let publicSide, publicTickets, publicMoney, fadeSide, fadeTickets, fadeMoney, publicValue, fadeValue;
+                if (homeTickets > awayTickets) {
+                    publicSide = 'home';
+                    publicTickets = homeTickets;
+                    publicMoney = homeMoney;
+                    fadeSide = 'away';
+                    fadeTickets = awayTickets;
+                    fadeMoney = awayMoney;
+                    publicValue = homeSide.value;
+                    fadeValue = awaySide.value;
+                } else {
+                    publicSide = 'away';
+                    publicTickets = awayTickets;
+                    publicMoney = awayMoney;
+                    fadeSide = 'home';
+                    fadeTickets = homeTickets;
+                    fadeMoney = homeMoney;
+                    publicValue = awaySide.value;
+                    fadeValue = homeSide.value;
+                }
+
+                reportLines.push(`<p><strong>PUBLIC SIDE:</strong> ${publicSide}_${publicValue.toFixed(1)} (${publicTickets.toFixed(0)}% tickets, ${publicMoney.toFixed(0)}% money)</p>`);
+                reportLines.push(`<p><strong>FADE SIDE:</strong> ${fadeSide}_${fadeValue.toFixed(1)} (${fadeTickets.toFixed(0)}% tickets, ${fadeMoney.toFixed(0)}% money)</p>`);
+
+                const homeOpen = openData.find(d => d.side.toLowerCase().includes('home'));
+                const homeConsensus = consensusData.find(d => d.side.toLowerCase().includes('home'));
+                const awayOpen = openData.find(d => d.side.toLowerCase().includes('away'));
+                const awayConsensus = consensusData.find(d => d.side.toLowerCase().includes('away'));
+
+                if (!homeOpen || !homeConsensus || !awayOpen || !awayConsensus) continue;
+
+                const homeMove = homeConsensus.odds - homeOpen.odds;
+                const awayMove = awayConsensus.odds - awayOpen.odds;
+
+                const homeFavor = homeMove > 0 ? 'LESS favorable' : homeMove < 0 ? 'MORE favorable' : 'NO change';
+                const awayFavor = awayMove < 0 ? 'LESS favorable' : awayMove > 0 ? 'MORE favorable' : 'NO change';
+
+                reportLines.push('<p><strong>Line Movements:</strong></p>');
+                reportLines.push(`<p>${publicSide}_${publicValue.toFixed(1)}: ${formatOdds(homeMove)} (${homeFavor})</p>`);
+                reportLines.push(`<p>${fadeSide}_${fadeValue.toFixed(1)}: ${formatOdds(awayMove)} (${awayFavor})</p>`);
+
+                const rlm = fadeSide === 'away' 
+                    ? detectReverseLineMovement(awayOpen.odds, awayConsensus.odds, publicTickets, 'fade')
+                    : detectReverseLineMovement(homeOpen.odds, homeConsensus.odds, publicTickets, 'fade');
+
+                if (rlm.detected) {
+                    reportLines.push(`<p class="text-red-600 font-bold">🚨 REVERSE LINE MOVEMENT!</p>`);
+                    reportLines.push(`<p>Type: ${rlm.type}</p>`);
+                    reportLines.push(`<p>Strength: ${rlm.strength.toFixed(1)}%</p>`);
+                }
+
+                reportLines.push('<p><strong>Detailed Analysis:</strong></p>');
+                reportLines.push(`<p>${fadeSide}_${fadeValue.toFixed(1)}: ${formatOdds(awayOpen.odds)} → ${formatOdds(awayConsensus.odds)} (Move: ${formatOdds(awayMove)})</p>`);
+                reportLines.push(`<p>${publicSide}_${publicValue.toFixed(1)}: ${formatOdds(homeOpen.odds)} → ${formatOdds(homeConsensus.odds)} (Move: ${formatOdds(homeMove)})</p>`);
+
+                for (const side of ['home', 'away']) {
+                    const sideData = sportsbookData.filter(d => d.side.toLowerCase().includes(side));
+                    if (sideData.length) {
+                        const bestOddsRow = sideData.reduce((max, d) => d.odds > max.odds ? d : max, sideData[0]);
+                        reportLines.push(`<p>(${bestOddsRow.book_id} spread ${side} ${formatOdds(bestOddsRow.odds)})</p>`);
                     }
                 }
-            });
-            
-            return Array.from(gameMap.values()).map(game => {
-                return analyzeGame(game);
-            });
-        }
 
-        function analyzeGame(game) {
-            const spreadData = game.spread_data;
-            const consensus = spreadData.consensus;
-            const open = spreadData.open;
-            
-            let publicSide = 'home';
-            let fadeSide = 'away';
-            
-            const homeConsensus = Object.values(consensus).find(o => o.side?.includes('home'));
-            const awayConsensus = Object.values(consensus).find(o => o.side?.includes('away'));
-            
-            if (homeConsensus && awayConsensus) {
-                const homeTickets = homeConsensus.bet_info?.tickets?.percent || 0;
-                const awayTickets = awayConsensus.bet_info?.tickets?.percent || 0;
-                
-                if (awayTickets > homeTickets) {
-                    publicSide = 'away';
-                    fadeSide = 'home';
-                }
+                reportLines.push('</div>');
             }
-            
-            const rlmDetected = detectReverseLineMovement(open, consensus, publicSide);
-            
-            const bestLines = getBestSpreadLines(spreadData.sportsbooks);
-            
-            return {
-                ...game,
-                public_side: publicSide,
-                fade_side: fadeSide,
-                rlm_detected: rlmDetected,
-                best_lines: bestLines,
-                public_tickets: publicSide === 'home' ? 
-                    (homeConsensus?.bet_info?.tickets?.percent || 0) : 
-                    (awayConsensus?.bet_info?.tickets?.percent || 0),
-                public_money: publicSide === 'home' ? 
-                    (homeConsensus?.bet_info?.money?.percent || 0) : 
-                    (awayConsensus?.bet_info?.money?.percent || 0)
-            };
+
+            return reportLines;
         }
 
-        function detectReverseLineMovement(open, consensus, publicSide) {
-            const publicOpen = Object.values(open).find(o => o.side?.includes(publicSide));
-            const publicConsensus = Object.values(consensus).find(o => o.side?.includes(publicSide));
-            
-            if (!publicOpen || !publicConsensus) return false;
-            
-            const movement = publicConsensus.odds - publicOpen.odds;
-            const tickets = publicConsensus.bet_info?.tickets?.percent || 0;
-            
-            return tickets > 60 && movement < -5;
-        }
+        // Main Execution
+        async function main() {
+            const marketsUrl = "https://www.actionnetwork.com/_next/data/_Owd9Pe9zClPGo9ZBiBYQ/mlb/sharp-report.json?league=mlb";
+            const gamesUrl = "https://www.actionnetwork.com/_next/data/_Owd9Pe9zClPGo9ZBiBYQ/public-betting.json";
 
-        function getBestSpreadLines(sportsbooks) {
-            const homeLines = sportsbooks.filter(s => s.side?.includes('home')).sort((a, b) => b.odds - a.odds);
-            const awayLines = sportsbooks.filter(s => s.side?.includes('away')).sort((a, b) => b.odds - a.odds);
-            
-            return {
-                home: homeLines[0],
-                away: awayLines[0]
-            };
-        }
+            const loading = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            const reportContainer = document.getElementById('reportContainer');
+            loading.classList.remove('hidden');
+            errorDiv.classList.add('hidden');
+            reportContainer.innerHTML = '';
 
-        function displayGames(games) {
-            const grid = document.getElementById('gamesGrid');
-            grid.innerHTML = '';
-            
-            currentGames = games;
-            
-            games.forEach(game => {
-                const card = createGameCard(game);
-                grid.appendChild(card);
-            });
-        }
+            try {
+                // Fetch data
+                const [marketsData, eventsData] = await Promise.all([
+                    fetchJson(marketsUrl),
+                    fetchJson(gamesUrl)
+                ]);
 
-        function createGameCard(game) {
-            const card = document.createElement('div');
-            card.className = 'game-card';
-            
-            const consensus = game.spread_data.consensus;
-            const open = game.spread_data.open;
-            
-            const publicData = Object.values(consensus).find(o => o.side?.includes(game.public_side));
-            const fadeData = Object.values(consensus).find(o => o.side?.includes(game.fade_side));
-            
-            const publicValue = publicData?.value || 0;
-            const fadeValue = fadeData?.value || 0;
-            
-            const rlmBadge = game.rlm_detected ? 
-                '<div class="rlm-indicator"><i class="fas fa-exclamation-triangle"></i> RLM DETECTED</div>' : '';
-            
-            card.innerHTML = `
-                <div class="game-header">
-                    <div class="team-matchup">${game.away_team} @ ${game.home_team}</div>
-                    ${rlmBadge}
-                </div>
-                
-                <div class="betting-sides">
-                    <div class="side-info public-side">
-                        <div class="side-label">Public Side</div>
-                        <div class="side-details">
-                            ${game.public_side.toUpperCase()} ${formatSpread(publicValue)}<br>
-                            <small>${game.public_tickets.toFixed(0)}% tickets, ${game.public_money.toFixed(0)}% money</small>
-                        </div>
-                    </div>
-                    <div class="side-info fade-side">
-                        <div class="side-label">Fade Side</div>
-                        <div class="side-details">
-                            ${game.fade_side.toUpperCase()} ${formatSpread(fadeValue)}<br>
-                            <small>${(100 - game.public_tickets).toFixed(0)}% tickets, ${(100 - game.public_money).toFixed(0)}% money</small>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="line-movements">
-                    <div class="movement-title">Line Movements:</div>
-                    ${generateMovementDisplay(open, consensus)}
-                </div>
-                
-                <div class="best-lines">
-                    <div class="movement-title">Best Available Lines:</div>
-                    ${generateBestLinesDisplay(game.best_lines)}
-                </div>
-            `;
-            
-            return card;
-        }
+                // Extract outcomes and event lookup
+                const outcomes = extractOutcomes(marketsData);
+                const eventLookup = buildEventLookup(eventsData);
 
-        function generateMovementDisplay(open, consensus) {
-            let html = '';
-            
-            ['home', 'away'].forEach(side => {
-                const openData = Object.values(open).find(o => o.side?.includes(side));
-                const consensusData = Object.values(consensus).find(o => o.side?.includes(side));
-                
-                if (openData && consensusData) {
-                    const movement = consensusData.odds - openData.odds;
-                    const favorClass = movement > 0 ? 'unfavorable' : movement < 0 ? 'favorable' : '';
-                    const favorText = movement > 0 ? 'LESS favorable' : movement < 0 ? 'MORE favorable' : 'NO change';
-                    
-                    html += `
-                        <div class="movement-item">
-                            <span>${side.toUpperCase()} ${formatSpread(consensusData.value || 0)}</span>
-                            <span class="${favorClass}">
-                                <span class="odds-display">${formatOdds(movement)}</span> (${favorText})
-                            </span>
-                        </div>
-                    `;
-                }
-            });
-            
-            return html || '<div class="movement-item">No movement data available</div>';
-        }
+                // Map book IDs to display names
+                const allBooks = marketsData.pageProps?.allBooks || {};
+                const idToName = Object.fromEntries(
+                    Object.entries(allBooks).map(([id, book]) => [book.id, book.display_name])
+                );
 
-        function generateBestLinesDisplay(bestLines) {
-            let html = '';
-            
-            if (bestLines.home) {
-                html += `
-                    <div class="best-line-item">
-                        <span class="sportsbook-name">${bestLines.home.book_name}</span>
-                        <span class="odds-display">HOME ${formatSpread(bestLines.home.value)} ${formatOdds(bestLines.home.odds)}</span>
-                    </div>
-                `;
+                // Prepare data array
+                const data = outcomes.map(outcome => {
+                    const eventId = outcome.event_id;
+                    const tickets = outcome.bet_info?.tickets || {};
+                    const money = outcome.bet_info?.money || {};
+                    return {
+                        event_id: eventId,
+                        home_team: eventLookup[eventId]?.home_team || '',
+                        away_team: eventLookup[eventId]?.away_team || '',
+                        book_id: idToName[outcome.book_id] || outcome.book_id || '',
+                        market_type: outcome.type || '',
+                        outcome_id: outcome.outcome_id || '',
+                        side: outcome.side || '',
+                        odds: outcome.odds || 0,
+                        value: outcome.value || 0,
+                        tickets_percent: tickets.percent || 0,
+                        money_percent: money.percent || 0
+                    };
+                });
+
+                // Filter for Consensus, Open, and top odds
+                const consensusData = data.filter(d => d.book_id.includes('Consensus'));
+                const openData = data.filter(d => d.book_id.includes('Open'));
+                const groupedData = {};
+                data.filter(d => !d.book_id.includes('Consensus') && !d.book_id.includes('Open'))
+                    .forEach(d => {
+                        const key = `${d.event_id}_${d.market_type}_${d.side}`;
+                        if (!groupedData[key]) groupedData[key] = [];
+                        groupedData[key].push(d);
+                    });
+
+                const topOddsData = Object.values(groupedData).map(group => 
+                    group.reduce((max, d) => d.odds > max.odds ? d : max, group[0])
+                );
+
+                const combinedData = [...consensusData, ...openData, ...topOddsData]
+                    .sort((a, b) => a.event_id.localeCompare(b.event_id));
+
+                // Generate and display report
+                const reportLines = generateReport(combinedData, eventLookup);
+                reportContainer.innerHTML = reportLines.join('');
+            } catch (error) {
+                errorDiv.classList.remove('hidden');
+                errorDiv.innerHTML = `Error: ${error.message}. Please try again.`;
+            } finally {
+                loading.classList.add('hidden');
             }
-            
-            if (bestLines.away) {
-                html += `
-                    <div class="best-line-item">
-                        <span class="sportsbook-name">${bestLines.away.book_name}</span>
-                        <span class="odds-display">AWAY ${formatSpread(bestLines.away.value)} ${formatOdds(bestLines.away.odds)}</span>
-                    </div>
-                `;
-            }
-            
-            return html || '<div class="best-line-item">No sportsbook data available</div>';
         }
 
-        function formatOdds(odds) {
-            if (typeof odds !== 'number') return 'N/A';
-            return odds > 0 ? `+${odds}` : `${odds}`;
-        }
-
-        function formatSpread(value) {
-            if (typeof value !== 'number') return '';
-            return value > 0 ? `+${value}` : `${value}`;
-        }
-
-        function updateSummaryStats(games, totalOutcomes) {
-            const summaryEl = document.getElementById('summaryStats');
-            summaryEl.style.display = 'block';
-            
-            const rlmCount = games.filter(g => g.rlm_detected).length;
-            const avgTickets = games.length > 0 ? 
-                (games.reduce((sum, g) => sum + g.public_tickets, 0) / games.length).toFixed(0) : 0;
-            
-            document.getElementById('totalGames').textContent = games.length;
-            document.getElementById('rlmCount').textContent = rlmCount;
-            document.getElementById('totalOutcomes').textContent = totalOutcomes;
-            document.getElementById('avgTickets').textContent = avgTickets + '%';
-        }
-
-        function showNoData(message = 'No MLB games found') {
-            const grid = document.getElementById('gamesGrid');
-            grid.innerHTML = `
-                <div class="no-data">
-                    <i class="fas fa-info-circle"></i>
-                    <h3>${message}</h3>
-                    <p>Try refreshing or check back later when more games are available</p>
-                </div>
-            `;
-            document.getElementById('summaryStats').style.display = 'none';
-        }
-
-        // Auto-refresh every 5 minutes
-        setInterval(() => {
-            if (currentGames.length > 0) {
-                fetchSharpReport();
-            }
-        }, 300000);
+        // Event Listener
+        document.getElementById('fetchDataBtn').addEventListener('click', main);
     </script>
 </body>
 </html>
