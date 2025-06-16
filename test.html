@@ -368,8 +368,15 @@
     <script>
         // Configuration - Using proxy to avoid CORS issues
         const CONFIG = {
-            marketsUrl: 'https://www.actionnetwork.com/_next/data/_Owd9Pe9zClPGo9ZBiBYQ/mlb/sharp-report.json?league=mlb'),
-            gamesUrl: 'https://www.actionnetwork.com/_next/data/_Owd9Pe9zClPGo9ZBiBYQ/public-betting.json')
+            marketsUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/_next/data/[BUILD_ID]/mlb/sharp-report.json?league=mlb'),
+            gamesUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/_next/data/[BUILD_ID]/public-betting.json')
+        };
+
+        const HEADERS = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Referer": "https://www.actionnetwork.com",
+            "Origin": "https://www.actionnetwork.com"
         };
 
         let currentGames = [];
@@ -390,7 +397,11 @@
             try {
                 // Step 1: Fetch markets data
                 updateProgress(25, 'Fetching MLB market data...');
-                const marketsResponse = await fetch(CONFIG.marketsUrl, { mode: 'cors' });
+                const marketsResponse = await fetch(CONFIG.marketsUrl.replace('[BUILD_ID]', '_Owd9Pe9zClPGo9ZBiBYQ'), {
+                    method: 'GET',
+                    headers: HEADERS,
+                    mode: 'cors'
+                });
                 if (!marketsResponse.ok) {
                     throw new Error(`HTTP error! Status: ${marketsResponse.status}`);
                 }
@@ -399,12 +410,17 @@
                 try {
                     parsedMarketsData = JSON.parse(marketsData.contents);
                 } catch (e) {
-                    throw new Error('Invalid JSON response from markets API');
+                    console.error('Raw markets response:', marketsData.contents);
+                    throw new Error(`Invalid JSON response from markets API: ${e.message}`);
                 }
                 
                 // Step 2: Fetch games data
                 updateProgress(50, 'Fetching games and team data...');
-                const gamesResponse = await fetch(CONFIG.gamesUrl, { mode: 'cors' });
+                const gamesResponse = await fetch(CONFIG.gamesUrl.replace('[BUILD_ID]', '_Owd9Pe9zClPGo9ZBiBYQ'), {
+                    method: 'GET',
+                    headers: HEADERS,
+                    mode: 'cors'
+                });
                 if (!gamesResponse.ok) {
                     throw new Error(`HTTP error! Status: ${gamesResponse.status}`);
                 }
@@ -413,7 +429,8 @@
                 try {
                     parsedGamesData = JSON.parse(gamesData.contents);
                 } catch (e) {
-                    throw new Error('Invalid JSON response from games API');
+                    console.error('Raw games response:', gamesData.contents);
+                    throw new Error(`Invalid JSON response from games API: ${e.message}`);
                 }
                 
                 // Step 3: Process data
@@ -442,8 +459,8 @@
             } catch (error) {
                 console.error('Error fetching sharp report:', error);
                 statusEl.className = 'status error';
-                statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i><span>Error: ${error.message}. The Action Network API endpoints may have changed. Please check the URLs.</span>`;
-                showNoData('Failed to load data. The Action Network API endpoints may have changed or are temporarily unavailable.');
+                statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i><span>Error: ${error.message}. Check console for raw response.</span>`;
+                showNoData('Failed to load data. The Action Network API endpoints may have changed or are temporarily unavailable. Check console for details.');
             } finally {
                 fetchBtn.disabled = false;
                 setTimeout(() => {
@@ -511,7 +528,6 @@
         function processGameData(outcomes, eventLookup, books) {
             const gameMap = new Map();
             
-            // Group outcomes by event
             outcomes.forEach(outcome => {
                 const eventId = outcome.event_id;
                 const teamData = eventLookup[eventId];
@@ -534,7 +550,6 @@
                 
                 const game = gameMap.get(eventId);
                 
-                // Add book name
                 const bookId = outcome.book_id;
                 const bookInfo = books[bookId];
                 const bookName = bookInfo?.display_name || `Book ${bookId}`;
@@ -546,7 +561,6 @@
                 
                 game.outcomes.push(processedOutcome);
                 
-                // Process spread data specifically
                 if (outcome.type === 'spread') {
                     if (bookName.includes('Open')) {
                         game.spread_data.open[outcome.side] = processedOutcome;
@@ -558,7 +572,6 @@
                 }
             });
             
-            // Convert to array and analyze each game
             return Array.from(gameMap.values()).map(game => {
                 return analyzeGame(game);
             });
@@ -569,7 +582,6 @@
             const consensus = spreadData.consensus;
             const open = spreadData.open;
             
-            // Determine public and fade sides
             let publicSide = 'home';
             let fadeSide = 'away';
             
@@ -586,10 +598,8 @@
                 }
             }
             
-            // Detect reverse line movement
             const rlmDetected = detectReverseLineMovement(open, consensus, publicSide);
             
-            // Get best sportsbook lines
             const bestLines = getBestSpreadLines(spreadData.sportsbooks);
             
             return {
@@ -608,7 +618,6 @@
         }
 
         function detectReverseLineMovement(open, consensus, publicSide) {
-            // Simple RLM detection logic
             const publicOpen = Object.values(open).find(o => o.side?.includes(publicSide));
             const publicConsensus = Object.values(consensus).find(o => o.side?.includes(publicSide));
             
@@ -617,7 +626,6 @@
             const movement = publicConsensus.odds - publicOpen.odds;
             const tickets = publicConsensus.bet_info?.tickets?.percent || 0;
             
-            // RLM: Public getting majority of bets but line moving against them
             return tickets > 60 && movement < -5;
         }
 
