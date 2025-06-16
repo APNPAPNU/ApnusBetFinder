@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLB Sharp Report - Line Movement Tracker</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .fetch-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .fetch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
+        }
+        
+        .fetch-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+        
+        .status.loading {
+            color: #ffc107;
+        }
+        
+        .status.success {
+            color: #28a745;
+        }
+        
+        .status.error {
+            color: #dc3545;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .game-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            padding: 20px;
+            border-left: 5px solid #ff6b6b;
+            transition: transform 0.3s ease;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f8f9fa;
+        }
+        
+        .team-matchup {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .rlm-indicator {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .betting-sides {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .side-info {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .side-label {
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .side-details {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .public-side {
+            border-left: 4px solid #28a745;
+        }
+        
+        .fade-side {
+            border-left: 4px solid #dc3545;
+        }
+        
+        .line-movements {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .movement-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .movement-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .favorable {
+            color: #28a745;
+        }
+        
+        .unfavorable {
+            color: #dc3545;
+        }
+        
+        .odds-display {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        .best-lines {
+            background: #f0f8ff;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #b3d9ff;
+        }
+        
+        .best-line-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .sportsbook-name {
+            color: #0066cc;
+            font-weight: 600;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        
+        .no-data i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .summary-stats {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #f8f9fa;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+            transition: width 0.3s ease;
+            width: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .games-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .betting-sides {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> MLB Sharp Report</h1>
+            <p>Live Line Movement & Reverse Line Movement Detection</p>
+        </div>
+        
+        <div class="controls">
+            <button class="fetch-btn" onclick="fetchSharpReport()" id="fetchBtn">
+                <i class="fas fa-download"></i>
+                Get Sharp Report Data
+            </button>
+            <div class="status" id="status">
+                <i class="fas fa-clock"></i>
+                <span>Ready to fetch latest sharp report</span>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="progress-bar" id="progressBar" style="display: none;">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <div class="summary-stats" id="summaryStats" style="display: none;">
+                <div class="stat-item">
+                    <div class="stat-number" id="totalGames">0</div>
+                    <div class="stat-label">Games Analyzed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="rlmCount">0</div>
+                    <div class="stat-label">RLM Detected</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalOutcomes">0</div>
+                    <div class="stat-label">Betting Outcomes</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="avgTickets">0%</div>
+                    <div class="stat-label">Avg Public %</div>
+                </div>
+            </div>
+            
+            <div class="games-grid" id="gamesGrid">
+                <div class="no-data">
+                    <i class="fas fa-baseball-ball"></i>
+                    <h3>Click "Get Sharp Report Data" to fetch live MLB data</h3>
+                    <p>This will analyze current games for line movements and sharp money indicators</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - Using proxy to avoid CORS issues
+        const CONFIG = {
+            marketsUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/_next/data/_Owd9Pe9zClPGo9ZBiBYQ/mlb/sharp-report.json?league=mlb'),
+            gamesUrl: 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.actionnetwork.com/_next/data/_Owd9Pe9zClPGo9ZBiBYQ/public-betting.json')
+        };
+
+        let currentGames = [];
+
+        async function fetchSharpReport() {
+            const statusEl = document.getElementById('status');
+            const fetchBtn = document.getElementById('fetchBtn');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+
+            // Update UI
+            fetchBtn.disabled = true;
+            statusEl.className = 'status loading';
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Fetching sharp report data...</span>';
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+
+            try {
+                // Step 1: Fetch markets data
+                updateProgress(25, 'Fetching MLB market data...');
+                const marketsResponse = await fetch(CONFIG.marketsUrl);
+                const marketsData = await marketsResponse.json();
+                const parsedMarketsData = JSON.parse(marketsData.contents);
+                
+                // Step 2: Fetch games data
+                updateProgress(50, 'Fetching games and team data...');
+                const gamesResponse = await fetch(CONFIG.gamesUrl);
+                const gamesData = await gamesResponse.json();
+                const parsedGamesData = JSON.parse(gamesData.contents);
+                
+                // Step 3: Process data
+                updateProgress(75, 'Processing betting outcomes...');
+                const outcomes = extractOutcomes(parsedMarketsData);
+                const eventLookup = buildEventLookup(parsedGamesData);
+                const books = parsedMarketsData.pageProps?.allBooks || {};
+                
+                // Step 4: Combine and analyze
+                updateProgress(90, 'Analyzing line movements...');
+                const processedGames = processGameData(outcomes, eventLookup, books);
+                
+                updateProgress(100, 'Complete!');
+                
+                if (processedGames.length === 0) {
+                    showNoData('No MLB games with betting data found');
+                    statusEl.className = 'status success';
+                    statusEl.innerHTML = '<i class="fas fa-check-circle"></i><span>Data fetched - No games available</span>';
+                } else {
+                    displayGames(processedGames);
+                    updateSummaryStats(processedGames, outcomes.length);
+                    statusEl.className = 'status success';
+                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i><span>Analyzed ${processedGames.length} games!</span>`;
+                }
+
+            } catch (error) {
+                console.error('Error fetching sharp report:', error);
+                statusEl.className = 'status error';
+                statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i><span>Error: ${error.message}</span>`;
+                showNoData('Failed to load data. This may be due to CORS restrictions or API changes.');
+            } finally {
+                fetchBtn.disabled = false;
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        function updateProgress(percent, message) {
+            const progressFill = document.getElementById('progressFill');
+            const statusEl = document.getElementById('status');
+            
+            progressFill.style.width = percent + '%';
+            statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${message}</span>`;
+        }
+
+        function extractOutcomes(obj) {
+            const outcomes = [];
+            
+            function recurse(obj) {
+                if (typeof obj === 'object' && obj !== null) {
+                    if (Array.isArray(obj)) {
+                        obj.forEach(item => recurse(item));
+                    } else {
+                        if (obj.outcome_id) {
+                            outcomes.push(obj);
+                        }
+                        Object.values(obj).forEach(value => recurse(value));
+                    }
+                }
+            }
+            
+            recurse(obj);
+            return outcomes;
+        }
+
+        function buildEventLookup(obj) {
+            const eventLookup = {};
+            
+            function recurse(obj) {
+                if (typeof obj === 'object' && obj !== null) {
+                    if (Array.isArray(obj)) {
+                        obj.forEach(item => recurse(item));
+                    } else {
+                        if (obj.id && obj.home_team_id && obj.away_team_id && obj.teams) {
+                            const homeTeam = obj.teams.find(t => t.id === obj.home_team_id);
+                            const awayTeam = obj.teams.find(t => t.id === obj.away_team_id);
+                            
+                            if (homeTeam && awayTeam) {
+                                eventLookup[obj.id] = {
+                                    home_team: homeTeam.full_name,
+                                    away_team: awayTeam.full_name
+                                };
+                            }
+                        }
+                        Object.values(obj).forEach(value => recurse(value));
+                    }
+                }
+            }
+            
+            recurse(obj);
+            return eventLookup;
+        }
+
+        function processGameData(outcomes, eventLookup, books) {
+            const gameMap = new Map();
+            
+            // Group outcomes by event
+            outcomes.forEach(outcome => {
+                const eventId = outcome.event_id;
+                const teamData = eventLookup[eventId];
+                
+                if (!teamData) return;
+                
+                if (!gameMap.has(eventId)) {
+                    gameMap.set(eventId, {
+                        event_id: eventId,
+                        home_team: teamData.home_team,
+                        away_team: teamData.away_team,
+                        outcomes: [],
+                        spread_data: {
+                            open: {},
+                            consensus: {},
+                            sportsbooks: []
+                        }
+                    });
+                }
+                
+                const game = gameMap.get(eventId);
+                
+                // Add book name
+                const bookId = outcome.book_id;
+                const bookInfo = books[bookId];
+                const bookName = bookInfo?.display_name || `Book ${bookId}`;
+                
+                const processedOutcome = {
+                    ...outcome,
+                    book_name: bookName
+                };
+                
+                game.outcomes.push(processedOutcome);
+                
+                // Process spread data specifically
+                if (outcome.type === 'spread') {
+                    if (bookName.includes('Open')) {
+                        game.spread_data.open[outcome.side] = processedOutcome;
+                    } else if (bookName.includes('Consensus')) {
+                        game.spread_data.consensus[outcome.side] = processedOutcome;
+                    } else {
+                        game.spread_data.sportsbooks.push(processedOutcome);
+                    }
+                }
+            });
+            
+            // Convert to array and analyze each game
+            return Array.from(gameMap.values()).map(game => {
+                return analyzeGame(game);
+            });
+        }
+
+        function analyzeGame(game) {
+            const spreadData = game.spread_data;
+            const consensus = spreadData.consensus;
+            const open = spreadData.open;
+            
+            // Determine public and fade sides
+            let publicSide = 'home';
+            let fadeSide = 'away';
+            
+            const homeConsensus = Object.values(consensus).find(o => o.side?.includes('home'));
+            const awayConsensus = Object.values(consensus).find(o => o.side?.includes('away'));
+            
+            if (homeConsensus && awayConsensus) {
+                const homeTickets = homeConsensus.bet_info?.tickets?.percent || 0;
+                const awayTickets = awayConsensus.bet_info?.tickets?.percent || 0;
+                
+                if (awayTickets > homeTickets) {
+                    publicSide = 'away';
+                    fadeSide = 'home';
+                }
+            }
+            
+            // Detect reverse line movement
+            const rlmDetected = detectReverseLineMovement(open, consensus, publicSide);
+            
+            // Get best sportsbook lines
+            const bestLines = getBestSpreadLines(spreadData.sportsbooks);
+            
+            return {
+                ...game,
+                public_side: publicSide,
+                fade_side: fadeSide,
+                rlm_detected: rlmDetected,
+                best_lines: bestLines,
+                public_tickets: publicSide === 'home' ? 
+                    (homeConsensus?.bet_info?.tickets?.percent || 0) : 
+                    (awayConsensus?.bet_info?.tickets?.percent || 0),
+                public_money: publicSide === 'home' ? 
+                    (homeConsensus?.bet_info?.money?.percent || 0) : 
+                    (awayConsensus?.bet_info?.money?.percent || 0)
+            };
+        }
+
+        function detectReverseLineMovement(open, consensus, publicSide) {
+            // Simple RLM detection logic
+            const publicOpen = Object.values(open).find(o => o.side?.includes(publicSide));
+            const publicConsensus = Object.values(consensus).find(o => o.side?.includes(publicSide));
+            
+            if (!publicOpen || !publicConsensus) return false;
+            
+            const movement = publicConsensus.odds - publicOpen.odds;
+            const tickets = publicConsensus.bet_info?.tickets?.percent || 0;
+            
+            // RLM: Public getting majority of bets but line moving against them
+            return tickets > 60 && movement < -5;
+        }
+
+        function getBestSpreadLines(sportsbooks) {
+            const homeLines = sportsbooks.filter(s => s.side?.includes('home')).sort((a, b) => b.odds - a.odds);
+            const awayLines = sportsbooks.filter(s => s.side?.includes('away')).sort((a, b) => b.odds - a.odds);
+            
+            return {
+                home: homeLines[0],
+                away: awayLines[0]
+            };
+        }
+
+        function displayGames(games) {
+            const grid = document.getElementById('gamesGrid');
+            grid.innerHTML = '';
+            
+            currentGames = games;
+            
+            games.forEach(game => {
+                const card = createGameCard(game);
+                grid.appendChild(card);
+            });
+        }
+
+        function createGameCard(game) {
+            const card = document.createElement('div');
+            card.className = 'game-card';
+            
+            const consensus = game.spread_data.consensus;
+            const open = game.spread_data.open;
+            
+            const publicData = Object.values(consensus).find(o => o.side?.includes(game.public_side));
+            const fadeData = Object.values(consensus).find(o => o.side?.includes(game.fade_side));
+            
+            const publicValue = publicData?.value || 0;
+            const fadeValue = fadeData?.value || 0;
+            
+            const rlmBadge = game.rlm_detected ? 
+                '<div class="rlm-indicator"><i class="fas fa-exclamation-triangle"></i> RLM DETECTED</div>' : '';
+            
+            card.innerHTML = `
+                <div class="game-header">
+                    <div class="team-matchup">${game.away_team} @ ${game.home_team}</div>
+                    ${rlmBadge}
+                </div>
+                
+                <div class="betting-sides">
+                    <div class="side-info public-side">
+                        <div class="side-label">Public Side</div>
+                        <div class="side-details">
+                            ${game.public_side.toUpperCase()} ${formatSpread(publicValue)}<br>
+                            <small>${game.public_tickets.toFixed(0)}% tickets, ${game.public_money.toFixed(0)}% money</small>
+                        </div>
+                    </div>
+                    <div class="side-info fade-side">
+                        <div class="side-label">Fade Side</div>
+                        <div class="side-details">
+                            ${game.fade_side.toUpperCase()} ${formatSpread(fadeValue)}<br>
+                            <small>${(100 - game.public_tickets).toFixed(0)}% tickets, ${(100 - game.public_money).toFixed(0)}% money</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="line-movements">
+                    <div class="movement-title">Line Movements:</div>
+                    ${generateMovementDisplay(open, consensus)}
+                </div>
+                
+                <div class="best-lines">
+                    <div class="movement-title">Best Available Lines:</div>
+                    ${generateBestLinesDisplay(game.best_lines)}
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function generateMovementDisplay(open, consensus) {
+            let html = '';
+            
+            ['home', 'away'].forEach(side => {
+                const openData = Object.values(open).find(o => o.side?.includes(side));
+                const consensusData = Object.values(consensus).find(o => o.side?.includes(side));
+                
+                if (openData && consensusData) {
+                    const movement = consensusData.odds - openData.odds;
+                    const favorClass = movement > 0 ? 'unfavorable' : movement < 0 ? 'favorable' : '';
+                    const favorText = movement > 0 ? 'LESS favorable' : movement < 0 ? 'MORE favorable' : 'NO change';
+                    
+                    html += `
+                        <div class="movement-item">
+                            <span>${side.toUpperCase()} ${formatSpread(consensusData.value || 0)}</span>
+                            <span class="${favorClass}">
+                                <span class="odds-display">${formatOdds(movement)}</span> (${favorText})
+                            </span>
+                        </div>
+                    `;
+                }
+            });
+            
+            return html || '<div class="movement-item">No movement data available</div>';
+        }
+
+        function generateBestLinesDisplay(bestLines) {
+            let html = '';
+            
+            if (bestLines.home) {
+                html += `
+                    <div class="best-line-item">
+                        <span class="sportsbook-name">${bestLines.home.book_name}</span>
+                        <span class="odds-display">HOME ${formatSpread(bestLines.home.value)} ${formatOdds(bestLines.home.odds)}</span>
+                    </div>
+                `;
+            }
+            
+            if (bestLines.away) {
+                html += `
+                    <div class="best-line-item">
+                        <span class="sportsbook-name">${bestLines.away.book_name}</span>
+                        <span class="odds-display">AWAY ${formatSpread(bestLines.away.value)} ${formatOdds(bestLines.away.odds)}</span>
+                    </div>
+                `;
+            }
+            
+            return html || '<div class="best-line-item">No sportsbook data available</div>';
+        }
+
+        function formatOdds(odds) {
+            if (typeof odds !== 'number') return 'N/A';
+            return odds > 0 ? `+${odds}` : `${odds}`;
+        }
+
+        function formatSpread(value) {
+            if (typeof value !== 'number') return '';
+            return value > 0 ? `+${value}` : `${value}`;
+        }
+
+        function updateSummaryStats(games, totalOutcomes) {
+            const summaryEl = document.getElementById('summaryStats');
+            summaryEl.style.display = 'block';
+            
+            const rlmCount = games.filter(g => g.rlm_detected).length;
+            const avgTickets = games.length > 0 ? 
+                (games.reduce((sum, g) => sum + g.public_tickets, 0) / games.length).toFixed(0) : 0;
+            
+            document.getElementById('totalGames').textContent = games.length;
+            document.getElementById('rlmCount').textContent = rlmCount;
+            document.getElementById('totalOutcomes').textContent = totalOutcomes;
+            document.getElementById('avgTickets').textContent = avgTickets + '%';
+        }
+
+        function showNoData(message = 'No MLB games found') {
+            const grid = document.getElementById('gamesGrid');
+            grid.innerHTML = `
+                <div class="no-data">
+                    <i class="fas fa-info-circle"></i>
+                    <h3>${message}</h3>
+                    <p>Try refreshing or check back later when more games are available</p>
+                </div>
+            `;
+            document.getElementById('summaryStats').style.display = 'none';
+        }
+
+        // Auto-refresh every 5 minutes
+        setInterval(() => {
+            if (currentGames.length > 0) {
+                fetchSharpReport();
+            }
+        }, 300000);
+    </script>
+</body>
+</html>
