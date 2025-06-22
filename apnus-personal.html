@@ -350,106 +350,101 @@
 
     <script>
         // Configuration
-        const CONFIG = {
-            oddsApiUrl: 'https://api.the-odds-api.com/v4/sports/baseball_mlb/odds',
-            pinnacleApiUrl: 'https://api.pinnacle.com/v1/fixtures',
-            PRIMARY_API_KEY: 'a6792f346ad81e83198fe36df9091cfc',
-            BACKUP_API_KEY: '05340b9f6a1e23cb603c21d2fb14c1c3'
-        };
+    const CONFIG = {
+        oddsApiUrl: 'https://api.the-odds-api.com/v4/sports/baseball_mlb/odds',
+        pinnacleApiUrl: 'https://api.pinnacle.com/v1/fixtures',
+        API_KEYS: [
+            'a6792f346ad81e83198fe36df9091cfc',         // Primary
+            '05340b9f6a1e23cb603c21d2fb14c1c3',         // Backup 1
+            '241813761ed786794e44f807fc922004'          // Backup 2
+        ]
+    };
 
-        let currentOpportunities = [];
+    let currentOpportunities = [];
 
-        async function findEVOpportunities() {
-            const statusEl = document.getElementById('status');
-            const refreshBtn = document.getElementById('refreshBtn');
-            const progressBar = document.getElementById('progressBar');
-            const progressFill = document.getElementById('progressFill');
+    async function findEVOpportunities() {
+        const statusEl = document.getElementById('status');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
 
-            // Update UI
-            refreshBtn.disabled = true;
-            statusEl.className = 'status loading';
-            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Scanning for opportunities...</span>';
-            progressBar.style.display = 'block';
-            progressFill.style.width = '0%';
+        // Update UI
+        refreshBtn.disabled = true;
+        statusEl.className = 'status loading';
+        statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Scanning for opportunities...</span>';
+        progressBar.style.display = 'block';
+        progressFill.style.width = '0%';
 
-            try {
-                // Step 1: Get MLB games and odds
-                updateProgress(20, 'Fetching MLB games...');
-                const gamesData = await fetchMLBGames();
-                
-                // Step 2: Get odds from multiple sportsbooks
-                updateProgress(40, 'Collecting odds from sportsbooks...');
-                const allOdds = await fetchAllSportsbooks(gamesData);
-                
-                // Step 3: Calculate EV for each opportunity
-                updateProgress(60, 'Calculating expected values...');
-                const evOpportunities = calculateEVOpportunities(allOdds);
-                
-                // Step 4: Filter and sort opportunities
-                updateProgress(80, 'Filtering best opportunities...');
-                const filteredOpportunities = filterBestOpportunities(evOpportunities);
-                
-                updateProgress(100, 'Complete!');
-                
-                if (filteredOpportunities.length === 0) {
-                    showNoData('No positive EV opportunities found at this time');
-                    statusEl.className = 'status success';
-                    statusEl.innerHTML = '<i class="fas fa-check-circle"></i><span>Scan complete - No opportunities found</span>';
-                } else {
-                    displayOpportunities(filteredOpportunities);
-                    updateSummaryStats(filteredOpportunities, gamesData.length);
-                    statusEl.className = 'status success';
-                    statusEl.innerHTML = `<i class="fas fa-check-circle"></i><span>Found ${filteredOpportunities.length} opportunities!</span>`;
-                }
+        try {
+            // Step 1: Get MLB games and odds
+            updateProgress(20, 'Fetching MLB games...');
+            const gamesData = await fetchMLBGames();
 
-            } catch (error) {
-                console.error('Error finding EV opportunities:', error);
-                statusEl.className = 'status error';
-                statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i><span>Error: ${error.message}</span>`;
-                showNoData('Failed to load data. Check console for details.');
-            } finally {
-                refreshBtn.disabled = false;
-                setTimeout(() => {
-                    progressBar.style.display = 'none';
-                }, 1000);
+            // Step 2: Get odds from multiple sportsbooks
+            updateProgress(40, 'Collecting odds from sportsbooks...');
+            const allOdds = await fetchAllSportsbooks(gamesData);
+
+            // Step 3: Calculate EV for each opportunity
+            updateProgress(60, 'Calculating expected values...');
+            const evOpportunities = calculateEVOpportunities(allOdds);
+
+            // Step 4: Filter and sort opportunities
+            updateProgress(80, 'Filtering best opportunities...');
+            const filteredOpportunities = filterBestOpportunities(evOpportunities);
+
+            updateProgress(100, 'Complete!');
+
+            if (filteredOpportunities.length === 0) {
+                showNoData('No positive EV opportunities found at this time');
+                statusEl.className = 'status success';
+                statusEl.innerHTML = '<i class="fas fa-check-circle"></i><span>Scan complete - No opportunities found</span>';
+            } else {
+                displayOpportunities(filteredOpportunities);
+                updateSummaryStats(filteredOpportunities, gamesData.length);
+                statusEl.className = 'status success';
+                statusEl.innerHTML = `<i class="fas fa-check-circle"></i><span>Found ${filteredOpportunities.length} opportunities!</span>`;
             }
-        }
 
-        function updateProgress(percent, message) {
-            const progressFill = document.getElementById('progressFill');
-            const statusEl = document.getElementById('status');
-            
-            progressFill.style.width = percent + '%';
-            statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${message}</span>`;
+        } catch (error) {
+            console.error('Error finding EV opportunities:', error);
+            statusEl.className = 'status error';
+            statusEl.innerHTML = `<i class="fas fa-exclamation-circle"></i><span>Error: ${error.message}</span>`;
+            showNoData('Failed to load data. Check console for details.');
+        } finally {
+            refreshBtn.disabled = false;
+            setTimeout(() => {
+                progressBar.style.display = 'none';
+            }, 1000);
         }
+    }
 
-        async function fetchMLBGames() {
-            let response;
+    function updateProgress(percent, message) {
+        const progressFill = document.getElementById('progressFill');
+        const statusEl = document.getElementById('status');
+
+        progressFill.style.width = percent + '%';
+        statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i><span>${message}</span>`;
+    }
+
+    async function fetchMLBGames() {
+        for (let i = 0; i < CONFIG.API_KEYS.length; i++) {
             try {
-                response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${CONFIG.PRIMARY_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
-                
+                const key = CONFIG.API_KEYS[i];
+                const response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${key}&regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
+
                 if (!response.ok) {
-                    throw new Error(`Primary API key failed: ${response.status}`);
+                    throw new Error(`API key index ${i} failed: ${response.status}`);
                 }
-                
+
                 const data = await response.json();
+                console.log(`Using API key index ${i} successfully.`);
                 return data;
             } catch (error) {
-                console.warn('Primary API key failed, trying backup key:', error);
-                try {
-                    response = await fetch(`${CONFIG.oddsApiUrl}?apiKey=${CONFIG.BACKUP_API_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso`);
-                    
-                    if (!response.ok) {
-                        throw new Error(`Backup API key failed: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    return data;
-                } catch (backupError) {
-                    throw new Error(`Failed to fetch MLB games: ${backupError.message}`);
-                }
+                console.warn(`API key index ${i} failed.`, error);
             }
         }
+        throw new Error('All API keys failed. Could not fetch MLB games.');
+    }
 
         async function fetchAllSportsbooks(gamesData) {
             const allOdds = {};
