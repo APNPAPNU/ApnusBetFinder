@@ -4,26 +4,33 @@ class BettingDataScraper {
         this.filteredData = [];
         this.refreshInterval = null;
         this.isLoading = false;
-        this.refreshIntervalTime = 3000; // Default 3 seconds
+        this.refreshIntervalTime = 3000;
         this.autoRefreshEnabled = true;
+        this.isMobileView = window.innerWidth <= 768;
+        this.sortColumn = null;
+        this.sortDirection = 'asc';
+        this.columnFilters = {};
         
         this.init();
     }
 
     init() {
         this.setupEventListeners();
+        this.setupMobileHandlers();
+        this.setupColumnFilters();
+        this.setupSorting();
         this.startAutoRefresh();
         this.fetchData();
     }
 
     setupEventListeners() {
-        // Filter event listeners
+        // 原有过滤器
         ['bookFilter', 'sportFilter', 'evFilter', 'liveFilter', 'searchFilter'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => this.applyFilters());
             document.getElementById(id).addEventListener('input', () => this.applyFilters());
         });
 
-        // Refresh control listeners
+        // 刷新控制
         document.getElementById('refreshToggle').addEventListener('change', (e) => {
             this.autoRefreshEnabled = e.target.checked;
             if (this.autoRefreshEnabled) {
@@ -38,13 +45,92 @@ class BettingDataScraper {
         document.getElementById('refreshInterval').addEventListener('change', (e) => {
             this.refreshIntervalTime = parseInt(e.target.value) * 1000;
             if (this.autoRefreshEnabled) {
-                this.startAutoRefresh(); // Restart with new interval
+                this.startAutoRefresh();
+            }
+        });
+
+        // 窗口大小变化
+        window.addEventListener('resize', () => {
+            const wasMobile = this.isMobileView;
+            this.isMobileView = window.innerWidth <= 768;
+            if (wasMobile !== this.isMobileView) {
+                this.renderTable();
             }
         });
     }
 
+    setupMobileHandlers() {
+        // 过滤器切换
+        document.getElementById('toggleFilters').addEventListener('click', () => {
+            const controls = document.getElementById('filterControls');
+            const columnFilters = document.getElementById('columnFilters');
+            const isHidden = controls.style.display === 'none';
+            
+            controls.style.display = isHidden ? 'flex' : 'none';
+            columnFilters.style.display = isHidden ? 'block' : 'none';
+        });
+
+        // 视图切换
+        document.getElementById('toggleView').addEventListener('click', () => {
+            const table = document.getElementById('dataTable');
+            const cards = document.getElementById('mobileCards');
+            const isTableVisible = table.style.display !== 'none';
+            
+            table.style.display = isTableVisible ? 'none' : 'table';
+            cards.style.display = isTableVisible ? 'block' : 'none';
+        });
+
+        // 初始移动端状态
+        if (this.isMobileView) {
+            document.getElementById('filterControls').style.display = 'none';
+            document.getElementById('columnFilters').style.display = 'none';
+        }
+    }
+
+    setupColumnFilters() {
+        const columnInputs = document.querySelectorAll('.column-filter-input');
+        columnInputs.forEach((input, index) => {
+            if (!input.disabled) {
+                input.addEventListener('input', (e) => {
+                    this.columnFilters[index] = e.target.value.toLowerCase();
+                    this.applyFilters();
+                });
+            }
+        });
+    }
+
+    setupSorting() {
+        const headers = document.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
+            header.addEventListener('click', () => {
+                const column = header.dataset.sort;
+                if (this.sortColumn === column) {
+                    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortColumn = column;
+                    this.sortDirection = 'asc';
+                }
+                this.updateSortIndicators();
+                this.applyFilters();
+            });
+        });
+    }
+
+    updateSortIndicators() {
+        document.querySelectorAll('.sort-indicator').forEach(indicator => {
+            indicator.textContent = '';
+        });
+        
+        if (this.sortColumn) {
+            const header = document.querySelector(`th[data-sort="${this.sortColumn}"] .sort-indicator`);
+            if (header) {
+                header.textContent = this.sortDirection === 'asc' ? '↑' : '↓';
+            }
+        }
+    }
+
     startAutoRefresh() {
-        this.stopAutoRefresh(); // Clear existing interval
+        this.stopAutoRefresh();
         if (this.autoRefreshEnabled) {
             this.refreshInterval = setInterval(() => {
                 if (!this.isLoading) {
@@ -76,25 +162,23 @@ class BettingDataScraper {
         this.updateStatus('Fetching data...', 'loading');
 
         try {
-            // Fetch all data sources
             const [openoddsData, cloudfrontData, awsData] = await Promise.all([
                 this.fetchOpenOddsData(),
                 this.fetchCloudfrontData(),
                 this.fetchAWSData()
             ]);
 
-            // Process and combine data
             this.data = this.processData(openoddsData, cloudfrontData, awsData);
             this.updateFilterOptions();
             this.applyFilters();
             
-            this.updateStatus(`Data updated successfully`, 'success');
-            document.getElementById('lastUpdate').textContent = `Last Update: ${new Date().toLocaleTimeString()}`;
+            this.updateStatus(`Data updated`, 'success');
+            document.getElementById('lastUpdate').textContent = `Last: ${new Date().toLocaleTimeString()}`;
             
         } catch (error) {
-            console.error('Error fetching data:', error);
+            console.error('获取数据错误:', error);
             this.updateStatus('Error fetching data', 'error');
-            this.showError('Failed to fetch betting data. Please check console for details.');
+            this.showError('Failed to fetch betting data.');
         }
         
         this.isLoading = false;
@@ -142,13 +226,12 @@ class BettingDataScraper {
             const liveData = liveResponse.ok ? await liveResponse.json() : [];
             const prematchData = prematchResponse.ok ? await prematchResponse.json() : [];
 
-            // Tag data with live/prematch flag
             liveData.forEach(item => item._is_live = true);
             prematchData.forEach(item => item._is_live = false);
 
             return [...liveData, ...prematchData];
         } catch (error) {
-            console.error('Error fetching OpenOdds data:', error);
+            console.error('OpenOdds数据错误:', error);
             return [];
         }
     }
@@ -167,7 +250,7 @@ class BettingDataScraper {
             }
             return [];
         } catch (error) {
-            console.error('Error fetching Cloudfront data:', error);
+            console.error('Cloudfront数据错误:', error);
             return [];
         }
     }
@@ -184,9 +267,9 @@ class BettingDataScraper {
                     const games = data.body || data;
                     Object.assign(allData, games);
                 }
-                await new Promise(resolve => setTimeout(resolve, 100)); // Rate limiting
+                await new Promise(resolve => setTimeout(resolve, 100));
             } catch (error) {
-                console.error(`Error fetching AWS data for ${sport}:`, error);
+                console.error(`AWS ${sport}数据错误:`, error);
             }
         }
 
@@ -196,7 +279,6 @@ class BettingDataScraper {
     processData(openoddsData, cloudfrontData, awsData) {
         const processed = [];
 
-        // Extract OpenOdds records
         for (const item of openoddsData) {
             if (item.channel && item.channel.includes("ev_stream") && item.payload) {
                 for (const payloadItem of item.payload) {
@@ -215,7 +297,6 @@ class BettingDataScraper {
                             ev_spread: payloadItem.ev_model?.spread
                         };
 
-                        // Find matching game info from Cloudfront
                         const gameInfo = this.findGameInfo(record.outcome_id, cloudfrontData, awsData);
                         Object.assign(record, gameInfo);
 
@@ -223,7 +304,7 @@ class BettingDataScraper {
                             processed.push(record);
                         }
                     } catch (error) {
-                        console.error('Error processing record:', error);
+                        console.error('处理记录错误:', error);
                     }
                 }
             }
@@ -235,7 +316,6 @@ class BettingDataScraper {
     findGameInfo(outcomeId, cloudfrontData, awsData) {
         const info = {};
         
-        // Find in Cloudfront data
         for (const game of cloudfrontData) {
             if (game.markets) {
                 for (const [marketId, market] of Object.entries(game.markets)) {
@@ -253,7 +333,6 @@ class BettingDataScraper {
                                 info.player_1 = game.player_1;
                                 info.player_2 = game.player_2;
                                 
-                                // Find additional info in AWS data
                                 if (info.market_id && awsData) {
                                     for (const [gameId, awsGame] of Object.entries(awsData)) {
                                         if (awsGame.markets && awsGame.markets[info.market_id]) {
@@ -275,11 +354,9 @@ class BettingDataScraper {
     }
 
     updateFilterOptions() {
-        // Update book filter
         const books = [...new Set(this.data.map(d => d.book).filter(Boolean))].sort();
         this.updateSelectOptions('bookFilter', books);
 
-        // Update sport filter
         const sports = [...new Set(this.data.map(d => d.sport).filter(Boolean))].sort();
         this.updateSelectOptions('sportFilter', sports);
     }
@@ -288,7 +365,6 @@ class BettingDataScraper {
         const select = document.getElementById(selectId);
         const currentValue = select.value;
         
-        // Clear existing options except first
         select.innerHTML = select.children[0].outerHTML;
         
         options.forEach(option => {
@@ -304,32 +380,28 @@ class BettingDataScraper {
     applyFilters() {
         let filtered = [...this.data];
 
-        // Book filter
+        // 原有过滤器
         const bookFilter = document.getElementById('bookFilter').value;
         if (bookFilter) {
             filtered = filtered.filter(d => d.book === bookFilter);
         }
 
-        // Sport filter
         const sportFilter = document.getElementById('sportFilter').value;
         if (sportFilter) {
             filtered = filtered.filter(d => d.sport === sportFilter);
         }
 
-        // EV filter
         const evFilter = parseFloat(document.getElementById('evFilter').value);
         if (!isNaN(evFilter)) {
             filtered = filtered.filter(d => d.ev && d.ev >= evFilter);
         }
 
-        // Live filter
         const liveFilter = document.getElementById('liveFilter').value;
         if (liveFilter !== '') {
             const isLive = liveFilter === 'true';
             filtered = filtered.filter(d => d.live === isLive);
         }
 
-        // Search filter
         const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
         if (searchFilter) {
             filtered = filtered.filter(d => 
@@ -342,16 +414,83 @@ class BettingDataScraper {
             );
         }
 
+        // 列过滤器
+        Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
+            if (filterValue) {
+                filtered = filtered.filter(record => {
+                    const cellValue = this.getCellValue(record, parseInt(colIndex));
+                    return cellValue.toLowerCase().includes(filterValue);
+                });
+            }
+        });
+
+        // 排序
+        if (this.sortColumn) {
+            filtered.sort((a, b) => {
+                const aVal = this.getSortValue(a, this.sortColumn);
+                const bVal = this.getSortValue(b, this.sortColumn);
+                
+                let result = 0;
+                if (aVal < bVal) result = -1;
+                else if (aVal > bVal) result = 1;
+                
+                return this.sortDirection === 'desc' ? -result : result;
+            });
+        }
+
         this.filteredData = filtered;
         this.renderTable();
         this.updateCounts();
     }
 
+    getCellValue(record, colIndex) {
+        const values = [
+            record.live ? 'LIVE' : 'Pre',
+            record.book || '',
+            this.formatGameName(record),
+            record.display_name || record.market_type || '',
+            record.ev ? (record.ev * 100).toFixed(2) + '%' : '',
+            record.american_odds || '',
+            record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '',
+            record.spread || '',
+            record.sport || '',
+            record.league || '',
+            record.deeplink ? 'Bet' : '',
+            record.last_ts ? new Date(record.last_ts * 1000).toLocaleTimeString() : ''
+        ];
+        return values[colIndex] || '';
+    }
+
+    getSortValue(record, column) {
+        switch (column) {
+            case 'status': return record.live ? 1 : 0;
+            case 'book': return record.book || '';
+            case 'game': return this.formatGameName(record);
+            case 'market': return record.display_name || record.market_type || '';
+            case 'ev': return record.ev || -999;
+            case 'odds': return parseInt(record.american_odds) || 0;
+            case 'prob': return record.true_prob || 0;
+            case 'spread': return parseFloat(record.spread) || 0;
+            case 'sport': return record.sport || '';
+            case 'league': return record.league || '';
+            case 'time': return record.last_ts || 0;
+            default: return '';
+        }
+    }
+
     renderTable() {
+        if (this.isMobileView && document.getElementById('mobileCards').style.display !== 'none') {
+            this.renderMobileCards();
+        } else {
+            this.renderDesktopTable();
+        }
+    }
+
+    renderDesktopTable() {
         const tbody = document.getElementById('tableBody');
         
         if (this.filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="12" class="no-data">No data matches current filters</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="no-data">No data matches filters</td></tr>';
             return;
         }
 
@@ -379,13 +518,57 @@ class BettingDataScraper {
             </tr>
         `).join('');
 
-        // Add click handlers for clickable rows
         tbody.querySelectorAll('tr.clickable').forEach(row => {
             row.addEventListener('click', (e) => {
                 const link = row.dataset.link;
-                if (link) {
-                    window.open(link, '_blank');
-                }
+                if (link) window.open(link, '_blank');
+            });
+        });
+    }
+
+    renderMobileCards() {
+        const container = document.getElementById('mobileCards');
+        
+        if (this.filteredData.length === 0) {
+            container.innerHTML = '<div class="no-data-card">No data matches filters</div>';
+            return;
+        }
+
+        container.innerHTML = this.filteredData.map(record => `
+            <div class="betting-card ${record.deeplink ? 'clickable' : ''}" data-link="${record.deeplink || ''}">
+                <div class="card-header">
+                    <div class="card-status">
+                        <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
+                        <span class="status-text">${record.live ? 'LIVE' : 'Pre'}</span>
+                    </div>
+                    <div class="card-book">${record.book || 'Unknown'}</div>
+                </div>
+                <div class="card-game">${this.formatGameName(record)}</div>
+                <div class="card-market">${record.display_name || record.market_type || 'Unknown Market'}</div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">EV</span>
+                        <span class="stat-value ${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
+                            ${record.ev ? (record.ev * 100).toFixed(2) + '%' : 'N/A'}
+                        </span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Odds</span>
+                        <span class="stat-value">${record.american_odds || 'N/A'}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Sport</span>
+                        <span class="stat-value">${record.sport || 'N/A'}</span>
+                    </div>
+                </div>
+                ${record.deeplink ? '<div class="card-bet-button">🎯 Place Bet</div>' : ''}
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.betting-card.clickable').forEach(card => {
+            card.addEventListener('click', () => {
+                const link = card.dataset.link;
+                if (link) window.open(link, '_blank');
             });
         });
     }
@@ -394,7 +577,7 @@ class BettingDataScraper {
         if (record.game_name) return record.game_name;
         if (record.home_team && record.away_team) return `${record.away_team} @ ${record.home_team}`;
         if (record.player_1 && record.player_2) return `${record.player_1} vs ${record.player_2}`;
-        return '-';
+        return 'Unknown Game';
     }
 
     updateCounts() {
@@ -410,28 +593,11 @@ class BettingDataScraper {
     showError(message) {
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = `<tr><td colspan="12" class="error-message">${message}</td></tr>`;
+        
+        const mobileCards = document.getElementById('mobileCards');
+        mobileCards.innerHTML = `<div class="error-card">${message}</div>`;
     }
 
-    // Utility method to handle CORS issues
-    async fetchWithFallback(url, options = {}) {
-        try {
-            const response = await fetch(url, options);
-            return response;
-        } catch (error) {
-            console.warn(`Direct fetch failed for ${url}, attempting with CORS proxy...`);
-            // Fallback to CORS proxy if available
-            const proxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
-            return await fetch(proxyUrl, {
-                ...options,
-                headers: {
-                    ...options.headers,
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-        }
-    }
-
-    // Method to export data as CSV
     exportToCSV() {
         if (this.filteredData.length === 0) {
             alert('No data to export');
@@ -469,38 +635,35 @@ class BettingDataScraper {
         window.URL.revokeObjectURL(url);
     }
 
-    // Method to handle window visibility changes (pause when tab is hidden)
     handleVisibilityChange() {
         if (document.hidden) {
             this.stopAutoRefresh();
-            this.updateStatus('Paused (tab hidden)', 'paused');
+            this.updateStatus('Paused (hidden)', 'paused');
         } else if (this.autoRefreshEnabled) {
             this.startAutoRefresh();
             this.updateStatus('Resumed', 'success');
-            this.fetchData(); // Immediate refresh when tab becomes visible
+            this.fetchData();
         }
     }
 
-    // Cleanup method
     destroy() {
         this.stopAutoRefresh();
         document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
     }
 }
 
-// Initialize the dashboard when page loads
+// 初始化
 let dashboard;
 document.addEventListener('DOMContentLoaded', () => {
     dashboard = new BettingDataScraper();
     
-    // Handle page visibility changes
     document.addEventListener('visibilitychange', () => {
         dashboard.handleVisibilityChange();
     });
 
-    // Add export button functionality
+    // 导出按钮
     const exportBtn = document.createElement('button');
-    exportBtn.textContent = '📊 Export CSV';
+    exportBtn.textContent = '📊 Export';
     exportBtn.className = 'filter-input';
     exportBtn.style.background = '#2ecc71';
     exportBtn.style.color = 'white';
@@ -514,9 +677,9 @@ document.addEventListener('DOMContentLoaded', () => {
     exportGroup.appendChild(exportBtn);
     controls.appendChild(exportGroup);
 
-    // Add manual refresh button
+    // 手动刷新按钮
     const refreshBtn = document.createElement('button');
-    refreshBtn.textContent = '🔄 Refresh Now';
+    refreshBtn.textContent = '🔄 Refresh';
     refreshBtn.className = 'filter-input';
     refreshBtn.style.background = '#3498db';
     refreshBtn.style.color = 'white';
@@ -533,13 +696,12 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshGroup.appendChild(refreshBtn);
     controls.appendChild(refreshGroup);
 
-    // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
         dashboard.destroy();
     });
 });
 
-// Handle deeplink clicks
+// Deeplink处理
 document.addEventListener('click', (e) => {
     if (e.target.classList.contains('deeplink')) {
         const row = e.target.closest('tr');
