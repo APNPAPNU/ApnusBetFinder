@@ -34,20 +34,26 @@
                 </select>
             </div>
             <div class="status-item">
-                <span>📊 Total Records: <strong id="totalRecords">0</strong></span>
+                <span>📊 Total: <strong id="totalRecords">0</strong></span>
             </div>
             <div class="status-item">
                 <span>🔴 Live: <strong id="liveCount">0</strong></span>
             </div>
             <div class="status-item">
-                <span>📋 Prematch: <strong id="prematchCount">0</strong></span>
+                <span>📋 Pre: <strong id="prematchCount">0</strong></span>
             </div>
-            <div class="status-item">
+            <div class="status-item mobile-hide">
                 <span id="lastUpdate">Last Update: Never</span>
             </div>
         </div>
 
-        <div class="controls">
+        <!-- 移动端过滤器切换 -->
+        <div class="mobile-filter-toggle">
+            <button id="toggleFilters">🔍 Filters</button>
+            <button id="toggleView">📱 View</button>
+        </div>
+
+        <div class="controls" id="filterControls">
             <div class="filter-group">
                 <label for="bookFilter">Sportsbook</label>
                 <select id="bookFilter" class="filter-input">
@@ -62,38 +68,57 @@
             </div>
             <div class="filter-group">
                 <label for="evFilter">Min EV %</label>
-                <input type="number" id="evFilter" class="filter-input" placeholder="e.g. 2.5" step="0.1">
+                <input type="number" id="evFilter" class="filter-input" placeholder="2.5" step="0.1">
             </div>
             <div class="filter-group">
                 <label for="liveFilter">Type</label>
                 <select id="liveFilter" class="filter-input">
                     <option value="">All</option>
-                    <option value="true">Live Only</option>
-                    <option value="false">Prematch Only</option>
+                    <option value="true">Live</option>
+                    <option value="false">Pre</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label for="searchFilter">Search</label>
-                <input type="text" id="searchFilter" class="filter-input" placeholder="Team, player, game...">
+                <input type="text" id="searchFilter" class="filter-input" placeholder="Team, player...">
+            </div>
+        </div>
+
+        <!-- 列过滤器 -->
+        <div class="column-filters" id="columnFilters">
+            <div class="column-filter-row">
+                <input type="text" placeholder="Filter Status..." data-column="0" class="column-filter-input">
+                <input type="text" placeholder="Filter Book..." data-column="1" class="column-filter-input">
+                <input type="text" placeholder="Filter Game..." data-column="2" class="column-filter-input">
+                <input type="text" placeholder="Filter Market..." data-column="3" class="column-filter-input">
+                <input type="text" placeholder="Filter EV..." data-column="4" class="column-filter-input">
+                <input type="text" placeholder="Filter Odds..." data-column="5" class="column-filter-input">
+                <input type="text" placeholder="Filter Prob..." data-column="6" class="column-filter-input mobile-hide">
+                <input type="text" placeholder="Filter Spread..." data-column="7" class="column-filter-input mobile-hide">
+                <input type="text" placeholder="Filter Sport..." data-column="8" class="column-filter-input mobile-hide">
+                <input type="text" placeholder="Filter League..." data-column="9" class="column-filter-input mobile-hide">
+                <input type="text" placeholder="Link" data-column="10" class="column-filter-input mobile-hide" disabled>
+                <input type="text" placeholder="Time" data-column="11" class="column-filter-input mobile-hide" disabled>
             </div>
         </div>
 
         <div class="table-container">
-            <table id="dataTable">
+            <!-- 桌面版表格 -->
+            <table id="dataTable" class="desktop-table">
                 <thead>
                     <tr>
-                        <th>Status</th>
-                        <th>Book</th>
-                        <th>Game</th>
-                        <th>Market</th>
-                        <th>EV %</th>
-                        <th>Odds</th>
-                        <th>True Prob</th>
-                        <th>Spread</th>
-                        <th>Sport</th>
-                        <th>League</th>
+                        <th data-sort="status">Status <span class="sort-indicator"></span></th>
+                        <th data-sort="book">Book <span class="sort-indicator"></span></th>
+                        <th data-sort="game">Game <span class="sort-indicator"></span></th>
+                        <th data-sort="market">Market <span class="sort-indicator"></span></th>
+                        <th data-sort="ev">EV % <span class="sort-indicator"></span></th>
+                        <th data-sort="odds">Odds <span class="sort-indicator"></span></th>
+                        <th data-sort="prob">True Prob <span class="sort-indicator"></span></th>
+                        <th data-sort="spread">Spread <span class="sort-indicator"></span></th>
+                        <th data-sort="sport">Sport <span class="sort-indicator"></span></th>
+                        <th data-sort="league">League <span class="sort-indicator"></span></th>
                         <th>Link</th>
-                        <th>Updated</th>
+                        <th data-sort="time">Updated <span class="sort-indicator"></span></th>
                     </tr>
                 </thead>
                 <tbody id="tableBody">
@@ -105,6 +130,14 @@
                     </tr>
                 </tbody>
             </table>
+
+            <!-- 移动端卡片视图 -->
+            <div id="mobileCards" class="mobile-cards">
+                <div class="loading-card">
+                    <div class="loading-spinner"></div>
+                    <p>Loading betting data...</p>
+                </div>
+            </div>
         </div>
     </div>
 
