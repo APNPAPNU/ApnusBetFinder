@@ -377,72 +377,75 @@ class BettingDataScraper {
         select.value = currentValue;
     }
 
-    applyFilters() {
-        let filtered = [...this.data];
+    // In your script.js file, replace the entire applyFilters() method with this corrected version:
 
-        // 原有过滤器
-        const bookFilter = document.getElementById('bookFilter').value;
-        if (bookFilter) {
-            filtered = filtered.filter(d => d.book === bookFilter);
-        }
+applyFilters() {
+    let filtered = [...this.data];
 
-        const sportFilter = document.getElementById('sportFilter').value;
-        if (sportFilter) {
-            filtered = filtered.filter(d => d.sport === sportFilter);
-        }
-
-        const evFilter = parseFloat(document.getElementById('evFilter').value);
-        if (!isNaN(evFilter)) {
-            filtered = filtered.filter(d => d.ev && d.ev >= evFilter);
-        }
-
-        const liveFilter = document.getElementById('liveFilter').value;
-        if (liveFilter !== '') {
-            const isLive = liveFilter === 'true';
-            filtered = filtered.filter(d => d.live === isLive);
-        }
-
-        const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
-        if (searchFilter) {
-            filtered = filtered.filter(d => 
-                (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
-                (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
-                (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
-                (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
-                (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
-                (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
-            );
-        }
-
-        // 列过滤器
-        Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
-            if (filterValue) {
-                filtered = filtered.filter(record => {
-                    const cellValue = this.getCellValue(record, parseInt(colIndex));
-                    return cellValue.toLowerCase().includes(filterValue);
-                });
-            }
-        });
-
-        // 排序
-        if (this.sortColumn) {
-            filtered.sort((a, b) => {
-                const aVal = this.getSortValue(a, this.sortColumn);
-                const bVal = this.getSortValue(b, this.sortColumn);
-                
-                let result = 0;
-                if (aVal < bVal) result = -1;
-                else if (aVal > bVal) result = 1;
-                
-                return this.sortDirection === 'desc' ? -result : result;
-            });
-        }
-
-        this.filteredData = filtered;
-        this.renderTable();
-        this.updateCounts();
+    // Original filters
+    const bookFilter = document.getElementById('bookFilter').value;
+    if (bookFilter) {
+        filtered = filtered.filter(d => d.book === bookFilter);
     }
 
+    const sportFilter = document.getElementById('sportFilter').value;
+    if (sportFilter) {
+        filtered = filtered.filter(d => d.sport === sportFilter);
+    }
+
+    // FIXED EV Filter - convert percentage input to decimal for comparison
+    const evFilterInput = document.getElementById('evFilter').value;
+    if (evFilterInput !== '' && !isNaN(evFilterInput)) {
+        const evThreshold = parseFloat(evFilterInput) / 100; // Convert percentage to decimal
+        filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
+    }
+
+    const liveFilter = document.getElementById('liveFilter').value;
+    if (liveFilter !== '') {
+        const isLive = liveFilter === 'true';
+        filtered = filtered.filter(d => d.live === isLive);
+    }
+
+    const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+    if (searchFilter) {
+        filtered = filtered.filter(d => 
+            (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
+            (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
+            (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
+            (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
+            (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
+            (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
+        );
+    }
+
+    // Column filters
+    Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
+        if (filterValue) {
+            filtered = filtered.filter(record => {
+                const cellValue = this.getCellValue(record, parseInt(colIndex));
+                return cellValue.toLowerCase().includes(filterValue);
+            });
+        }
+    });
+
+    // Sorting
+    if (this.sortColumn) {
+        filtered.sort((a, b) => {
+            const aVal = this.getSortValue(a, this.sortColumn);
+            const bVal = this.getSortValue(b, this.sortColumn);
+            
+            let result = 0;
+            if (aVal < bVal) result = -1;
+            else if (aVal > bVal) result = 1;
+            
+            return this.sortDirection === 'desc' ? -result : result;
+        });
+    }
+
+    this.filteredData = filtered;
+    this.renderTable();
+    this.updateCounts();
+}
     getCellValue(record, colIndex) {
         const values = [
             record.live ? 'LIVE' : 'Pre',
