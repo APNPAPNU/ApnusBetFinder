@@ -173,7 +173,7 @@ class BettingDataScraper {
             this.applyFilters();
             
             this.updateStatus(`Data updated`, 'success');
-            document.getElementById('lastUpdate').textContent = `Last: ${new Date().toLocaleTimeString()}`;
+            document.getElementById('lastUpdate').textContent = `Last: ${this.formatTimestampEST(new Date())}`;
             
         } catch (error) {
             console.error('获取数据错误:', error);
@@ -377,75 +377,74 @@ class BettingDataScraper {
         select.value = currentValue;
     }
 
-    // In your script.js file, replace the entire applyFilters() method with this corrected version:
+    applyFilters() {
+        let filtered = [...this.data];
 
-applyFilters() {
-    let filtered = [...this.data];
+        // Original filters
+        const bookFilter = document.getElementById('bookFilter').value;
+        if (bookFilter) {
+            filtered = filtered.filter(d => d.book === bookFilter);
+        }
 
-    // Original filters
-    const bookFilter = document.getElementById('bookFilter').value;
-    if (bookFilter) {
-        filtered = filtered.filter(d => d.book === bookFilter);
-    }
+        const sportFilter = document.getElementById('sportFilter').value;
+        if (sportFilter) {
+            filtered = filtered.filter(d => d.sport === sportFilter);
+        }
 
-    const sportFilter = document.getElementById('sportFilter').value;
-    if (sportFilter) {
-        filtered = filtered.filter(d => d.sport === sportFilter);
-    }
+        // FIXED EV Filter - convert percentage input to decimal for comparison
+        const evFilterInput = document.getElementById('evFilter').value;
+        if (evFilterInput !== '' && !isNaN(evFilterInput)) {
+            const evThreshold = parseFloat(evFilterInput) / 100; // Convert percentage to decimal
+            filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
+        }
 
-    // FIXED EV Filter - convert percentage input to decimal for comparison
-    const evFilterInput = document.getElementById('evFilter').value;
-    if (evFilterInput !== '' && !isNaN(evFilterInput)) {
-        const evThreshold = parseFloat(evFilterInput) / 100; // Convert percentage to decimal
-        filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
-    }
+        const liveFilter = document.getElementById('liveFilter').value;
+        if (liveFilter !== '') {
+            const isLive = liveFilter === 'true';
+            filtered = filtered.filter(d => d.live === isLive);
+        }
 
-    const liveFilter = document.getElementById('liveFilter').value;
-    if (liveFilter !== '') {
-        const isLive = liveFilter === 'true';
-        filtered = filtered.filter(d => d.live === isLive);
-    }
+        const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+        if (searchFilter) {
+            filtered = filtered.filter(d => 
+                (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
+                (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
+                (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
+                (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
+                (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
+                (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
+            );
+        }
 
-    const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
-    if (searchFilter) {
-        filtered = filtered.filter(d => 
-            (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
-            (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
-            (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
-            (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
-            (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
-            (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
-        );
-    }
+        // Column filters
+        Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
+            if (filterValue) {
+                filtered = filtered.filter(record => {
+                    const cellValue = this.getCellValue(record, parseInt(colIndex));
+                    return cellValue.toLowerCase().includes(filterValue);
+                });
+            }
+        });
 
-    // Column filters
-    Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
-        if (filterValue) {
-            filtered = filtered.filter(record => {
-                const cellValue = this.getCellValue(record, parseInt(colIndex));
-                return cellValue.toLowerCase().includes(filterValue);
+        // Sorting
+        if (this.sortColumn) {
+            filtered.sort((a, b) => {
+                const aVal = this.getSortValue(a, this.sortColumn);
+                const bVal = this.getSortValue(b, this.sortColumn);
+                
+                let result = 0;
+                if (aVal < bVal) result = -1;
+                else if (aVal > bVal) result = 1;
+                
+                return this.sortDirection === 'desc' ? -result : result;
             });
         }
-    });
 
-    // Sorting
-    if (this.sortColumn) {
-        filtered.sort((a, b) => {
-            const aVal = this.getSortValue(a, this.sortColumn);
-            const bVal = this.getSortValue(b, this.sortColumn);
-            
-            let result = 0;
-            if (aVal < bVal) result = -1;
-            else if (aVal > bVal) result = 1;
-            
-            return this.sortDirection === 'desc' ? -result : result;
-        });
+        this.filteredData = filtered;
+        this.renderTable();
+        this.updateCounts();
     }
 
-    this.filteredData = filtered;
-    this.renderTable();
-    this.updateCounts();
-}
     getCellValue(record, colIndex) {
         const values = [
             record.live ? 'LIVE' : 'Pre',
@@ -459,7 +458,7 @@ applyFilters() {
             record.sport || '',
             record.league || '',
             record.deeplink ? 'Bet' : '',
-            record.last_ts ? new Date(record.last_ts * 1000).toLocaleTimeString() : ''
+            this.formatTimestamp(record.last_ts) // Using EST formatting
         ];
         return values[colIndex] || '';
     }
@@ -476,8 +475,71 @@ applyFilters() {
             case 'spread': return parseFloat(record.spread) || 0;
             case 'sport': return record.sport || '';
             case 'league': return record.league || '';
-            case 'time': return record.last_ts || 0;
+            case 'time': return this.getTimestampValue(record.last_ts);
             default: return '';
+        }
+    }
+
+    // Helper method to convert UTC to Eastern Time and format for display
+    formatTimestamp(timestamp) {
+        if (!timestamp) return '-';
+        
+        try {
+            let date;
+            // Check if it's an ISO string or Unix timestamp
+            if (typeof timestamp === 'string' && timestamp.includes('T')) {
+                // ISO string format like "2025-07-03T00:06:05.732861"
+                date = new Date(timestamp);
+            } else if (typeof timestamp === 'number') {
+                // Unix timestamp (seconds)
+                date = new Date(timestamp * 1000);
+            } else {
+                return '-';
+            }
+            
+            if (isNaN(date.getTime())) return '-';
+            
+            // Convert to Eastern Time (EST/EDT)
+            return this.formatTimestampEST(date);
+        } catch (error) {
+            console.error('Error formatting timestamp:', error);
+            return '-';
+        }
+    }
+
+    // Helper method to format timestamp in Eastern Time
+  formatTimestampEST(date) {
+    try {
+        // Subtract 4 hours (4 * 60 * 60 * 1000 milliseconds)
+        const adjustedDate = new Date(date.getTime() - 4 * 60 * 60 * 1000);
+
+        return adjustedDate.toLocaleTimeString('en-US', {
+            timeZone: 'America/New_York',
+            hour12: true,
+            hour: 'numeric',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    } catch (e) {
+        return 'Invalid Date';
+    }
+}
+
+    // Helper method to get timestamp value for sorting (keep as UTC milliseconds)
+    getTimestampValue(timestamp) {
+        if (!timestamp) return 0;
+        
+        try {
+            if (typeof timestamp === 'string' && timestamp.includes('T')) {
+                // ISO string format
+                return new Date(timestamp).getTime();
+            } else if (typeof timestamp === 'number') {
+                // Unix timestamp
+                return timestamp * 1000;
+            }
+            return 0;
+        } catch (error) {
+            return 0;
         }
     }
 
@@ -517,7 +579,7 @@ applyFilters() {
                 <td>
                     ${record.deeplink ? `<span class="deeplink" onclick="event.stopPropagation();">Bet</span>` : '-'}
                 </td>
-                <td>${record.last_ts ? new Date(record.last_ts * 1000).toLocaleTimeString() : '-'}</td>
+                <td>${this.formatTimestamp(record.last_ts)}</td>
             </tr>
         `).join('');
 
@@ -564,6 +626,7 @@ applyFilters() {
                         <span class="stat-value">${record.sport || 'N/A'}</span>
                     </div>
                 </div>
+                <div class="card-time">${this.formatTimestamp(record.last_ts)}</div>
                 ${record.deeplink ? '<div class="card-bet-button">🎯 Place Bet</div>' : ''}
             </div>
         `).join('');
@@ -609,7 +672,7 @@ applyFilters() {
 
         const headers = [
             'Status', 'Book', 'Game', 'Market', 'EV %', 'Odds', 
-            'True Prob', 'Spread', 'Sport', 'League', 'Updated'
+            'True Prob', 'Spread', 'Sport', 'League', 'Updated (EST)'
         ];
 
         const csvContent = [
@@ -625,7 +688,7 @@ applyFilters() {
                 record.spread || '',
                 record.sport || '',
                 record.league || '',
-                record.last_ts ? new Date(record.last_ts * 1000).toLocaleString() : ''
+                this.formatTimestamp(record.last_ts)
             ].join(','))
         ].join('\n');
 
