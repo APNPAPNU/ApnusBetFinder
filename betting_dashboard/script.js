@@ -5,7 +5,7 @@ class BettingDataScraper {
         this.refreshInterval = null;
         this.isLoading = false;
         this.refreshIntervalTime = 12000;
-        this.autoRefreshEnabled = true;
+        this.autoRefreshEnabled = false;
         this.isMobileView = window.innerWidth <= 768;
         this.sortColumn = null;
         this.sortDirection = 'asc';
