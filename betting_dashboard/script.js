@@ -130,16 +130,15 @@ class BettingDataScraper {
     }
 
     startAutoRefresh() {
-        this.stopAutoRefresh();
-        if (this.autoRefreshEnabled) {
-            this.refreshInterval = setInterval(() => {
-                if (!this.isLoading) {
-                    this.fetchData();
-                }
-            }, this.refreshIntervalTime);
-        }
+    this.stopAutoRefresh();
+    if (this.autoRefreshEnabled && !this.isLoading) {
+        this.refreshInterval = setInterval(() => {
+            if (!this.isLoading) {
+                this.fetchData();
+            }
+        }, this.refreshIntervalTime);
     }
-
+}
     stopAutoRefresh() {
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
@@ -156,33 +155,41 @@ class BettingDataScraper {
     }
 
     async fetchData() {
-        if (this.isLoading) return;
-        
-        this.isLoading = true;
-        this.updateStatus('Fetching data...', 'loading');
+    if (this.isLoading) return;
+    
+    this.isLoading = true;
+    this.updateStatus('Fetching data...', 'loading');
+    
+    // Stop auto refresh while loading
+    this.stopAutoRefresh();
 
-        try {
-            const [openoddsData, cloudfrontData, awsData] = await Promise.all([
-                this.fetchOpenOddsData(),
-                this.fetchCloudfrontData(),
-                this.fetchAWSData()
-            ]);
+    try {
+        const [openoddsData, cloudfrontData, awsData] = await Promise.all([
+            this.fetchOpenOddsData(),
+            this.fetchCloudfrontData(),
+            this.fetchAWSData()
+        ]);
 
-            this.data = await this.processData(openoddsData, cloudfrontData, awsData);
-            this.updateFilterOptions();
-            this.applyFilters();
-            
-            this.updateStatus(`Data updated`, 'success');
-            document.getElementById('lastUpdate').textContent = `Last: ${this.formatTimestampEST(new Date())}`;
-            
-        } catch (error) {
-            console.error('获取数据错误:', error);
-            this.updateStatus('Error fetching data', 'error');
-            this.showError('Failed to fetch betting data.');
-        }
+        this.data = await this.processData(openoddsData, cloudfrontData, awsData);
+        this.updateFilterOptions();
+        this.applyFilters();
         
-        this.isLoading = false;
+        this.updateStatus(`Data updated`, 'success');
+        document.getElementById('lastUpdate').textContent = `Last: ${this.formatTimestampEST(new Date())}`;
+        
+    } catch (error) {
+        console.error('获取数据错误:', error);
+        this.updateStatus('Error fetching data', 'error');
+        this.showError('Failed to fetch betting data.');
     }
+    
+    this.isLoading = false;
+    
+    // Restart auto refresh only after everything is complete
+    if (this.autoRefreshEnabled) {
+        this.startAutoRefresh();
+    }
+}
 
     async fetchOpenOddsData() {
         const livePayload = {
@@ -267,8 +274,7 @@ class BettingDataScraper {
                     const games = data.body || data;
                     Object.assign(allData, games);
                 }
-                await new Promise(resolve => setTimeout(resolve, 100));
-            } catch (error) {
+                            } catch (error) {
                 console.error(`AWS ${sport}数据错误:`, error);
             }
         }
@@ -278,7 +284,7 @@ class BettingDataScraper {
 
     async processData(openoddsData, cloudfrontData, awsData) {
     const processed = [];
-    const unknownGames = [];
+    const gameInfoCache = new Map(); // Cache game info lookups
 
     for (const item of openoddsData) {
         if (item.channel && item.channel.includes("ev_stream") && item.payload) {
@@ -298,30 +304,24 @@ class BettingDataScraper {
                         ev_spread: payloadItem.ev_model?.spread
                     };
 
-                    const gameInfo = this.findGameInfo(record.outcome_id, cloudfrontData, awsData);
+                    // Use cached game info if available
+                    let gameInfo;
+                    if (gameInfoCache.has(record.outcome_id)) {
+                        gameInfo = gameInfoCache.get(record.outcome_id);
+                    } else {
+                        gameInfo = this.findGameInfo(record.outcome_id, cloudfrontData, awsData);
+                        gameInfoCache.set(record.outcome_id, gameInfo);
+                    }
+                    
                     Object.assign(record, gameInfo);
 
-                    if (record.outcome_id) {
-                        if (record._needsAdditionalLookup) {
-                            unknownGames.push(record);
-                        } else {
-                            processed.push(record);
-                        }
+                    if (record.outcome_id && !record._needsAdditionalLookup) {
+                        processed.push(record);
                     }
                 } catch (error) {
-                    console.error('处理记录错误:', error);
+                    console.error('Processing record error:', error);
                 }
             }
-        }
-    }
-
-    // Handle unknown games with additional API call
-    if (unknownGames.length > 0) {
-        for (const record of unknownGames) {
-            const additionalInfo = await this.findGameInfoFromCloudfront(record.outcome_id);
-            Object.assign(record, additionalInfo);
-            delete record._needsAdditionalLookup;
-            processed.push(record);
         }
     }
 
@@ -640,11 +640,16 @@ async findGameInfoFromCloudfront(outcomeId) {
         }
     }
 
-    renderDesktopTable() {
+   renderDesktopTable() {
     const tbody = document.getElementById('tableBody');
     
     if (this.filteredData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="12" class="no-data">No data matches filters</td></tr>';
+        return;
+    }
+
+    // Only rebuild if data actually changed
+    if (this.lastRenderedData && JSON.stringify(this.lastRenderedData) === JSON.stringify(this.filteredData)) {
         return;
     }
 
@@ -686,6 +691,9 @@ async findGameInfoFromCloudfront(outcomeId) {
     // Single DOM update
     tbody.innerHTML = '';
     tbody.appendChild(fragment);
+
+    // Cache the rendered data
+    this.lastRenderedData = [...this.filteredData];
 
     // Add click handlers only to clickable rows
     tbody.querySelectorAll('tr.clickable').forEach(row => {
