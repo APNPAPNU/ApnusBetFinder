@@ -168,7 +168,7 @@ class BettingDataScraper {
                 this.fetchAWSData()
             ]);
 
-            this.data = this.processData(openoddsData, cloudfrontData, awsData);
+            this.data = await this.processData(openoddsData, cloudfrontData, awsData);
             this.updateFilterOptions();
             this.applyFilters();
             
@@ -256,7 +256,7 @@ class BettingDataScraper {
     }
 
     async fetchAWSData() {
-        const sports = ["basketball", "baseball", "football", "soccer", "hockey"];
+        const sports = ["basketball", "baseball", "football", "soccer", "hockey","tennis"];
         let allData = {};
 
         for (const sport of sports) {
@@ -276,73 +276,158 @@ class BettingDataScraper {
         return allData;
     }
 
-    processData(openoddsData, cloudfrontData, awsData) {
-        const processed = [];
+    async processData(openoddsData, cloudfrontData, awsData) {
+    const processed = [];
+    const unknownGames = [];
 
-        for (const item of openoddsData) {
-            if (item.channel && item.channel.includes("ev_stream") && item.payload) {
-                for (const payloadItem of item.payload) {
-                    try {
-                        const record = {
-                            live: item._is_live || false,
-                            outcome_id: payloadItem.outcome_id,
-                            book: payloadItem.book,
-                            spread: payloadItem.spread,
-                            message: payloadItem.message,
-                            ev: payloadItem.ev_model?.ev,
-                            last_ts: payloadItem.ev_model?.last_ts,
-                            american_odds: payloadItem.ev_model?.american_odds,
-                            true_prob: payloadItem.ev_model?.true_prob,
-                            deeplink: payloadItem.ev_model?.deeplink,
-                            ev_spread: payloadItem.ev_model?.spread
-                        };
+    for (const item of openoddsData) {
+        if (item.channel && item.channel.includes("ev_stream") && item.payload) {
+            for (const payloadItem of item.payload) {
+                try {
+                    const record = {
+                        live: item._is_live || false,
+                        outcome_id: payloadItem.outcome_id,
+                        book: payloadItem.book,
+                        spread: payloadItem.spread,
+                        message: payloadItem.message,
+                        ev: payloadItem.ev_model?.ev,
+                        last_ts: payloadItem.ev_model?.last_ts,
+                        american_odds: payloadItem.ev_model?.american_odds,
+                        true_prob: payloadItem.ev_model?.true_prob,
+                        deeplink: payloadItem.ev_model?.deeplink,
+                        ev_spread: payloadItem.ev_model?.spread
+                    };
 
-                        const gameInfo = this.findGameInfo(record.outcome_id, cloudfrontData, awsData);
-                        Object.assign(record, gameInfo);
+                    const gameInfo = this.findGameInfo(record.outcome_id, cloudfrontData, awsData);
+                    Object.assign(record, gameInfo);
 
-                        if (record.outcome_id) {
+                    if (record.outcome_id) {
+                        if (record._needsAdditionalLookup) {
+                            unknownGames.push(record);
+                        } else {
                             processed.push(record);
                         }
-                    } catch (error) {
-                        console.error('处理记录错误:', error);
+                    }
+                } catch (error) {
+                    console.error('处理记录错误:', error);
+                }
+            }
+        }
+    }
+
+    // Handle unknown games with additional API call
+    if (unknownGames.length > 0) {
+        for (const record of unknownGames) {
+            const additionalInfo = await this.findGameInfoFromCloudfront(record.outcome_id);
+            Object.assign(record, additionalInfo);
+            delete record._needsAdditionalLookup;
+            processed.push(record);
+        }
+    }
+
+    return processed;
+}
+
+    findGameInfo(outcomeId, cloudfrontData, awsData) {
+    const info = {};
+    
+    console.log(`🔍 Looking for outcome_id: ${outcomeId} in cloudfrontData`);
+    
+    for (const game of cloudfrontData) {
+        if (game.markets) {
+            for (const [marketId, market] of Object.entries(game.markets)) {
+                if (market.outcomes) {
+                    for (const outcome of Object.values(market.outcomes)) {
+    // Strip _ALT suffix for matching
+    const cleanOutcomeId = outcome.outcome_id.replace(/_ALT$/, '');
+    const cleanSearchId = outcomeId.replace(/_ALT$/, '');
+    
+    if (outcome.outcome_id === outcomeId || cleanOutcomeId === cleanSearchId) {
+        console.log(`✅ Found match in cloudfrontData for ${outcomeId}:`, {
+            original_outcome_id: outcome.outcome_id,
+            searched_outcome_id: outcomeId,
+            game_name: game.game_name,
+            market_display_name: market.display_name,
+            outcome_display_name: outcome.display_name
+        });
+        
+                            info.market_id = marketId;
+                            info.market_type = market.market_type;
+                            info.display_name = market.display_name;
+                            info.game_name = game.game_name;
+                            info.home_team = game.home_team;
+                            info.away_team = game.away_team;
+                            info.sport = game.sport;
+                            info.league = game.league;
+                            info.player_1 = game.player_1;
+                            info.player_2 = game.player_2;
+                            
+                            if (info.market_id && awsData) {
+                                for (const [gameId, awsGame] of Object.entries(awsData)) {
+                                    if (awsGame.markets && awsGame.markets[info.market_id]) {
+                                        info.aws_game_date = awsGame.game_date;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            return info;
+                        }
                     }
                 }
             }
         }
-
-        return processed;
     }
-
-    findGameInfo(outcomeId, cloudfrontData, awsData) {
-        const info = {};
+    
+    console.log(`❌ No match found in cloudfrontData for outcome_id: ${outcomeId}`);
+    
+    // If not found, mark for additional lookup
+    info._needsAdditionalLookup = true;
+    info.outcome_id = outcomeId;
+    return info;
+}
+async findGameInfoFromCloudfront(outcomeId) {
+    try {
+        console.log(`🔍 Making additional CloudFront call for outcome_id: ${outcomeId}`);
         
-        for (const game of cloudfrontData) {
+        const response = await fetch('https://d6ailk8q6o27n.cloudfront.net/livegames');
+        if (!response.ok) {
+            console.log(`❌ CloudFront API call failed with status: ${response.status}`);
+            return {};
+        }
+        
+        const data = await response.json();
+        const allGames = [];
+        
+        if (data.body) {
+            if (data.body.prematch_games) allGames.push(...data.body.prematch_games);
+            if (data.body.live_games) allGames.push(...data.body.live_games);
+        }
+        
+        console.log(`📊 Checking ${allGames.length} games from additional CloudFront call`);
+        
+        for (const game of allGames) {
             if (game.markets) {
                 for (const [marketId, market] of Object.entries(game.markets)) {
                     if (market.outcomes) {
                         for (const outcome of Object.values(market.outcomes)) {
-                            if (outcome.outcome_id === outcomeId) {
-                                info.market_id = marketId;
-                                info.market_type = market.market_type;
-                                info.display_name = market.display_name;
-                                info.game_name = game.game_name;
-                                info.home_team = game.home_team;
-                                info.away_team = game.away_team;
-                                info.sport = game.sport;
-                                info.league = game.league;
-                                info.player_1 = game.player_1;
-                                info.player_2 = game.player_2;
+    if (outcome.outcome_id === outcomeId) {
+        console.log(`✅ Found match in additional CloudFront call for ${outcomeId}:`, {
+            // ... existing logging
+        });
                                 
-                                if (info.market_id && awsData) {
-                                    for (const [gameId, awsGame] of Object.entries(awsData)) {
-                                        if (awsGame.markets && awsGame.markets[info.market_id]) {
-                                            info.aws_game_date = awsGame.game_date;
-                                            break;
-                                        }
-                                    }
-                                }
-                                
-                                return info;
+                                return {
+                                    market_id: marketId,
+                                    market_type: market.market_type,
+                                    display_name: market.display_name,
+                                    game_name: game.game_name,
+                                    home_team: game.home_team,
+                                    away_team: game.away_team,
+                                    sport: game.sport,
+                                    league: game.league,
+                                    player_1: game.player_1,
+                                    player_2: game.player_2
+                                };
                             }
                         }
                     }
@@ -350,9 +435,13 @@ class BettingDataScraper {
             }
         }
         
-        return info;
+        console.log(`❌ Still no match found in additional CloudFront call for outcome_id: ${outcomeId}`);
+        return {};
+    } catch (error) {
+        console.error('Error fetching additional game info:', error);
+        return {};
     }
-
+}
     updateFilterOptions() {
         const books = [...new Set(this.data.map(d => d.book).filter(Boolean))].sort();
         this.updateSelectOptions('bookFilter', books);
@@ -640,12 +729,24 @@ class BettingDataScraper {
     }
 
     formatGameName(record) {
-        if (record.game_name) return record.game_name;
-        if (record.home_team && record.away_team) return `${record.away_team} @ ${record.home_team}`;
-        if (record.player_1 && record.player_2) return `${record.player_1} vs ${record.player_2}`;
-        return 'Unknown Game';
-    }
-
+    if (record.game_name) return record.game_name;
+    if (record.home_team && record.away_team) return `${record.away_team} @ ${record.home_team}`;
+    if (record.player_1 && record.player_2) return `${record.player_1} vs ${record.player_2}`;
+    
+    console.log(`⚠️ Unknown Game for outcome_id: ${record.outcome_id}`, {
+        game_name: record.game_name,
+        home_team: record.home_team,
+        away_team: record.away_team,
+        player_1: record.player_1,
+        player_2: record.player_2,
+        sport: record.sport,
+        league: record.league,
+        display_name: record.display_name,
+        market_type: record.market_type
+    });
+    
+    return 'Unknown Game';
+}
     updateCounts() {
         const totalRecords = this.filteredData.length;
         const liveCount = this.filteredData.filter(d => d.live).length;
