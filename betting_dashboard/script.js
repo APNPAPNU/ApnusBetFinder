@@ -331,7 +331,7 @@ class BettingDataScraper {
     findGameInfo(outcomeId, cloudfrontData, awsData) {
     const info = {};
     
-    console.log(`🔍 Looking for outcome_id: ${outcomeId} in cloudfrontData`);
+    // console.log(`🔍 Looking for outcome_id: ${outcomeId} in cloudfrontData`);
     
     for (const game of cloudfrontData) {
         if (game.markets) {
@@ -342,14 +342,14 @@ class BettingDataScraper {
     const cleanOutcomeId = outcome.outcome_id.replace(/_ALT$/, '');
     const cleanSearchId = outcomeId.replace(/_ALT$/, '');
     
-    if (outcome.outcome_id === outcomeId || cleanOutcomeId === cleanSearchId) {
-        console.log(`✅ Found match in cloudfrontData for ${outcomeId}:`, {
-            original_outcome_id: outcome.outcome_id,
-            searched_outcome_id: outcomeId,
-            game_name: game.game_name,
-            market_display_name: market.display_name,
-            outcome_display_name: outcome.display_name
-        });
+  if (outcome.outcome_id === outcomeId || cleanOutcomeId === cleanSearchId) {
+    // console.log(`✅ Found match in cloudfrontData for ${outcomeId}:`, {
+    //     original_outcome_id: outcome.outcome_id,
+    //     searched_outcome_id: outcomeId,
+    //     game_name: game.game_name,
+    //     market_display_name: market.display_name,
+    //     outcome_display_name: outcome.display_name
+    // });
         
                             info.market_id = marketId;
                             info.market_type = market.market_type;
@@ -467,43 +467,43 @@ async findGameInfoFromCloudfront(outcomeId) {
     }
 
     applyFilters() {
-        let filtered = [...this.data];
+    let filtered = this.data;
 
-        // Original filters
-        const bookFilter = document.getElementById('bookFilter').value;
-        if (bookFilter) {
-            filtered = filtered.filter(d => d.book === bookFilter);
-        }
+    // Chain filters for better performance
+    const bookFilter = document.getElementById('bookFilter').value;
+    const sportFilter = document.getElementById('sportFilter').value;
+    const evFilterInput = document.getElementById('evFilter').value;
+    const liveFilter = document.getElementById('liveFilter').value;
+    const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+    
+    if (bookFilter) {
+        filtered = filtered.filter(d => d.book === bookFilter);
+    }
 
-        const sportFilter = document.getElementById('sportFilter').value;
-        if (sportFilter) {
-            filtered = filtered.filter(d => d.sport === sportFilter);
-        }
+    if (sportFilter) {
+        filtered = filtered.filter(d => d.sport === sportFilter);
+    }
 
-        // FIXED EV Filter - convert percentage input to decimal for comparison
-        const evFilterInput = document.getElementById('evFilter').value;
-        if (evFilterInput !== '' && !isNaN(evFilterInput)) {
-            const evThreshold = parseFloat(evFilterInput) / 100; // Convert percentage to decimal
-            filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
-        }
+    if (evFilterInput !== '' && !isNaN(evFilterInput)) {
+        const evThreshold = parseFloat(evFilterInput) / 100;
+        filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
+    }
 
-        const liveFilter = document.getElementById('liveFilter').value;
-        if (liveFilter !== '') {
-            const isLive = liveFilter === 'true';
-            filtered = filtered.filter(d => d.live === isLive);
-        }
+    if (liveFilter !== '') {
+        const isLive = liveFilter === 'true';
+        filtered = filtered.filter(d => d.live === isLive);
+    }
 
-        const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
-        if (searchFilter) {
-            filtered = filtered.filter(d => 
-                (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
-                (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
-                (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
-                (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
-                (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
-                (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
-            );
-        }
+    if (searchFilter) {
+        filtered = filtered.filter(d => 
+            (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
+            (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
+            (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
+            (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
+            (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
+            (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
+        );
+    }
 
         // Column filters
         Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
@@ -641,45 +641,60 @@ async findGameInfoFromCloudfront(outcomeId) {
     }
 
     renderDesktopTable() {
-        const tbody = document.getElementById('tableBody');
-        
-        if (this.filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="12" class="no-data">No data matches filters</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = this.filteredData.map(record => `
-            <tr class="${record.deeplink ? 'clickable' : ''}" data-link="${record.deeplink || ''}">
-                <td>
-                    <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
-                    ${record.live ? 'LIVE' : 'Pre'}
-                </td>
-                <td>${record.book || '-'}</td>
-                <td>${this.formatGameName(record)}</td>
-                <td>${record.display_name || record.market_type || '-'}</td>
-                <td class="${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
-                    ${record.ev ? (record.ev * 100).toFixed(2) + '%' : '-'}
-                </td>
-                <td>${record.american_odds || '-'}</td>
-                <td>${record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '-'}</td>
-                <td>${record.spread || '-'}</td>
-                <td>${record.sport || '-'}</td>
-                <td>${record.league || '-'}</td>
-                <td>
-                    ${record.deeplink ? `<span class="deeplink" onclick="event.stopPropagation();">Bet</span>` : '-'}
-                </td>
-                <td>${this.formatTimestamp(record.last_ts)}</td>
-            </tr>
-        `).join('');
-
-        tbody.querySelectorAll('tr.clickable').forEach(row => {
-            row.addEventListener('click', (e) => {
-                const link = row.dataset.link;
-                if (link) window.open(link, '_blank');
-            });
-        });
+    const tbody = document.getElementById('tableBody');
+    
+    if (this.filteredData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" class="no-data">No data matches filters</td></tr>';
+        return;
     }
 
+    // Use DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+    
+    this.filteredData.forEach(record => {
+        const row = document.createElement('tr');
+        if (record.deeplink) {
+            row.className = 'clickable';
+            row.dataset.link = record.deeplink;
+        }
+        
+        row.innerHTML = `
+            <td>
+                <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
+                ${record.live ? 'LIVE' : 'Pre'}
+            </td>
+            <td>${record.book || '-'}</td>
+            <td>${this.formatGameName(record)}</td>
+            <td>${record.display_name || record.market_type || '-'}</td>
+            <td class="${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
+                ${record.ev ? (record.ev * 100).toFixed(2) + '%' : '-'}
+            </td>
+            <td>${record.american_odds || '-'}</td>
+            <td>${record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '-'}</td>
+            <td>${record.spread || '-'}</td>
+            <td>${record.sport || '-'}</td>
+            <td>${record.league || '-'}</td>
+            <td>
+                ${record.deeplink ? `<span class="deeplink" onclick="event.stopPropagation();">Bet</span>` : '-'}
+            </td>
+            <td>${this.formatTimestamp(record.last_ts)}</td>
+        `;
+        
+        fragment.appendChild(row);
+    });
+    
+    // Single DOM update
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+
+    // Add click handlers only to clickable rows
+    tbody.querySelectorAll('tr.clickable').forEach(row => {
+        row.addEventListener('click', (e) => {
+            const link = row.dataset.link;
+            if (link) window.open(link, '_blank');
+        });
+    });
+}
     renderMobileCards() {
         const container = document.getElementById('mobileCards');
         
