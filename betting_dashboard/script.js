@@ -4,7 +4,7 @@ class BettingDataScraper {
         this.filteredData = [];
         this.refreshInterval = null;
         this.isLoading = false;
-        this.refreshIntervalTime = 3000;
+        this.refreshIntervalTime = 12000;
         this.autoRefreshEnabled = true;
         this.isMobileView = window.innerWidth <= 768;
         this.sortColumn = null;
