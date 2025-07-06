@@ -35,10 +35,6 @@
                     <div class="detail-label">Sport</div>
                     <div class="detail-value" id="sportName">Loading...</div>
                 </div>
-                <div class="detail-item">
-                    <div class="detail-label">League</div>
-                    <div class="detail-value" id="leagueName">Loading...</div>
-                </div>
             </div>
         </div>
         
@@ -106,8 +102,7 @@
             const evValue = urlParams.get('ev_value');
             const bookName = urlParams.get('book_name');
             const sportName = urlParams.get('sport');
-            const leagueName = urlParams.get('league');
-            
+                      
             // Populate header information
             if (gameTitle) {
                 document.getElementById('gameTitle').textContent = decodeURIComponent(gameTitle);
