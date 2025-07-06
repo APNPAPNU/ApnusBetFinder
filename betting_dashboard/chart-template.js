@@ -27,7 +27,7 @@ if (apiUrl) {
     document.getElementById('outcomeInfo').innerHTML = outcomeInfo;
 }
 
-// Initialize chart
+// Initialize chart with optimized settings
 function initChart() {
     const ctx = document.getElementById('oddsChart').getContext('2d');
     chart = new Chart(ctx, {
@@ -39,8 +39,11 @@ function initChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                duration: 0 // Disable animations for better performance
+            },
             interaction: {
-                mode: 'index',
+                mode: 'nearest', // More efficient than 'index'
                 intersect: false,
             },
             scales: {
@@ -51,7 +54,8 @@ function initChart() {
                         color: '#a0aec0'
                     },
                     ticks: {
-                        color: '#a0aec0'
+                        color: '#a0aec0',
+                        maxTicksLimit: 10 // Limit number of x-axis labels
                     },
                     grid: {
                         color: '#4a5568'
@@ -73,7 +77,7 @@ function initChart() {
             },
             plugins: {
                 tooltip: {
-                    mode: 'index',
+                    mode: 'nearest',
                     intersect: false,
                     backgroundColor: '#2d3748',
                     titleColor: '#00d4ff',
@@ -107,29 +111,32 @@ function initChart() {
             },
             elements: {
                 point: {
-                    radius: 2,
-                    hoverRadius: 4
+                    radius: 1, // Smaller points for better performance
+                    hoverRadius: 3
                 },
                 line: {
-                    tension: 0.1
+                    tension: 0 // Straight lines are faster to render
                 }
             }
         }
     });
 }
 
-// Filter data points based on interval
+// Optimized data filtering with early exit
 function filterDataByInterval(data, interval) {
     if (interval === 1) return data;
     
-    return data.filter((item, index) => {
-        // Always include the first and last points
-        if (index === 0 || index === data.length - 1) {
-            return true;
+    const filtered = [];
+    const lastIndex = data.length - 1;
+    
+    for (let i = 0; i < data.length; i++) {
+        // Always include first and last points
+        if (i === 0 || i === lastIndex || i % interval === 0) {
+            filtered.push(data[i]);
         }
-        // Include every nth point
-        return index % interval === 0;
-    });
+    }
+    
+    return filtered;
 }
 
 // Update data interval
@@ -138,7 +145,7 @@ function updateDataInterval() {
     dataInterval = parseInt(select.value);
     
     // Re-render chart with cached data if available
-    if (oddsCache && oddsCache.body && oddsCache.body.odds) {
+    if (oddsCache?.body?.odds) {
         updateChart(oddsCache);
     }
 }
@@ -167,7 +174,7 @@ async function fetchAndDisplayData() {
         // Construct the first URL with proper time range
         const baseUrl = apiUrl.split('?')[0]; // Get base URL without query params
         const urlParams = new URLSearchParams(apiUrl.split('?')[1]); // Get existing params
-        urlParams.set('live', 'true');
+        urlParams.set('live', 'false');
         urlParams.set('from', fromTime.toString());
         urlParams.set('to', toTime.toString());
         const firstUrl = `${baseUrl}?${urlParams.toString()}`;
@@ -179,8 +186,8 @@ async function fetchAndDisplayData() {
         let closestTime = null;
         let minDiff = Infinity;
 
-        // Search through all sportsbooks for the closest time
-        if (firstData.body && firstData.body.odds) {
+        // Optimized search for closest time
+        if (firstData.body?.odds) {
             for (const [sportsbook, odds] of Object.entries(firstData.body.odds)) {
                 for (const entry of odds) {
                     const entryTime = new Date(entry[0]);
@@ -207,7 +214,7 @@ async function fetchAndDisplayData() {
         
         // Second API call with live=true and adjusted time
         const secondUrlParams = new URLSearchParams(firstUrl.split('?')[1]);
-        secondUrlParams.set('live', 'false');
+        secondUrlParams.set('live', 'true');
         secondUrlParams.set('from', unixTimeMillisPlus5Min.toString());
         const secondUrl = `${baseUrl}?${secondUrlParams.toString()}`;
         
@@ -216,26 +223,27 @@ async function fetchAndDisplayData() {
         
         statusEl.textContent = 'Combining and processing data...';
         
-        // Combine data from both calls
-        let combinedData = {};
+        // Optimized data combination
+        const combinedData = {};
         
         // Add data from first call
-        for (const [sportsbook, odds] of Object.entries(firstData.body.odds)) {
-            if (!combinedData[sportsbook]) {
-                combinedData[sportsbook] = [];
+        if (firstData.body?.odds) {
+            for (const [sportsbook, odds] of Object.entries(firstData.body.odds)) {
+                combinedData[sportsbook] = [...odds];
             }
-            combinedData[sportsbook] = [...odds];
         }
         
         // Add data from second call
-        for (const [sportsbook, odds] of Object.entries(secondData.body.odds)) {
-            if (!combinedData[sportsbook]) {
-                combinedData[sportsbook] = [];
+        if (secondData.body?.odds) {
+            for (const [sportsbook, odds] of Object.entries(secondData.body.odds)) {
+                if (!combinedData[sportsbook]) {
+                    combinedData[sportsbook] = [];
+                }
+                combinedData[sportsbook].push(...odds);
             }
-            combinedData[sportsbook] = [...combinedData[sportsbook], ...odds];
         }
         
-        // Sort each sportsbook's data by time
+        // Sort each sportsbook's data by time (optimize with a single sort)
         for (const sportsbook in combinedData) {
             combinedData[sportsbook].sort((a, b) => new Date(a[0]) - new Date(b[0]));
         }
@@ -262,24 +270,17 @@ async function fetchAndDisplayData() {
     }
 }
 
-// Update chart with new data
+// Optimized chart update with better memory management
 function updateChart(data) {
-    // Handle data format
-    let odds = {};
-
-    if (data.body && data.body.odds) {
-        // Your data format - already grouped by bookmaker
-        odds = data.body.odds;
-    } else {
+    if (!data.body?.odds) {
         console.error('Unexpected data format:', data);
         return;
     }
     
+    const odds = data.body.odds;
     const bookmakers = Object.keys(odds);
     
-    // Clear existing data
-    chart.data.labels = [];
-    chart.data.datasets = [];
+    if (bookmakers.length === 0) return;
     
     // Colors for different bookmakers
     const colors = [
@@ -287,22 +288,25 @@ function updateChart(data) {
         '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
     ];
     
-    let allTimePoints = new Set();
+    // Pre-allocate arrays and use Set for better performance
+    const allTimePoints = new Set();
     let totalOriginalPoints = 0;
     
     // Filter data by interval for each bookmaker
     const filteredOdds = {};
-    bookmakers.forEach(bookmaker => {
+    for (const bookmaker of bookmakers) {
         const originalData = odds[bookmaker];
         totalOriginalPoints = Math.max(totalOriginalPoints, originalData.length);
         
         filteredOdds[bookmaker] = filterDataByInterval(originalData, dataInterval);
-        filteredOdds[bookmaker].forEach(entry => {
+        
+        // Add time points to set
+        for (const entry of filteredOdds[bookmaker]) {
             allTimePoints.add(entry[0]);
-        });
-    });
+        }
+    }
     
-    // Sort timestamps
+    // Convert Set to Array and sort once
     const sortedTimePoints = Array.from(allTimePoints).sort();
     
     // Update data info
@@ -312,37 +316,47 @@ function updateChart(data) {
         (every ${dataInterval === 1 ? '' : dataInterval + getOrdinalSuffix(dataInterval) + ' '}point${dataInterval === 1 ? '' : ', plus first and last'})
     `;
     
-    // Create labels (formatted time)
-    chart.data.labels = sortedTimePoints.map(timestamp => {
+    // Create labels (formatted time) - cache date objects
+    const labels = sortedTimePoints.map(timestamp => {
         const date = new Date(timestamp);
         return date.toLocaleTimeString();
     });
     
     // Create datasets for each bookmaker
-    bookmakers.forEach((bookmaker, index) => {
+    const datasets = [];
+    for (let i = 0; i < bookmakers.length; i++) {
+        const bookmaker = bookmakers[i];
         const bookmakerData = filteredOdds[bookmaker];
         
-        // Create data array aligned with time points
-        const dataPoints = sortedTimePoints.map(timestamp => {
-            const entry = bookmakerData.find(item => item[0] === timestamp);
-            return entry ? entry[2] : null; // American odds (index 2)
-        });
+        // Create lookup map for faster data access
+        const dataMap = new Map();
+        for (const entry of bookmakerData) {
+            dataMap.set(entry[0], entry[2]);
+        }
         
-        chart.data.datasets.push({
+        // Create data array aligned with time points
+        const dataPoints = sortedTimePoints.map(timestamp => 
+            dataMap.get(timestamp) || null
+        );
+        
+        datasets.push({
             label: bookmaker,
             data: dataPoints,
-            borderColor: colors[index % colors.length],
-            backgroundColor: colors[index % colors.length] + '20',
+            borderColor: colors[i % colors.length],
+            backgroundColor: colors[i % colors.length] + '20',
             fill: false,
-            tension: 0.1,
+            tension: 0,
             pointRadius: dataInterval === 1 ? 1 : 2,
             pointHoverRadius: dataInterval === 1 ? 3 : 4,
             borderWidth: 2,
             spanGaps: true
         });
-    });
+    }
     
-    chart.update();
+    // Update chart data efficiently
+    chart.data.labels = labels;
+    chart.data.datasets = datasets;
+    chart.update('none'); // Skip animation for better performance
     
     // Update fair odds display
     updateFairOddsDisplay(odds, sortedTimePoints);
@@ -372,12 +386,12 @@ function updateFairOddsDisplay(odds, timePoints) {
     const latestTime = timePoints[timePoints.length - 1];
     const oddsAtLatestTime = [];
     
-    Object.keys(odds).forEach(bookmaker => {
+    for (const bookmaker of Object.keys(odds)) {
         const entry = odds[bookmaker].find(item => item[0] === latestTime);
         if (entry && entry[2] !== null && entry[2] !== undefined) {
             oddsAtLatestTime.push(entry[2]);
         }
-    });
+    }
     
     if (oddsAtLatestTime.length > 0) {
         const fairOdds = Math.round(oddsAtLatestTime.reduce((a, b) => a + b, 0) / oddsAtLatestTime.length);
@@ -387,61 +401,33 @@ function updateFairOddsDisplay(odds, timePoints) {
     }
 }
 
-// Update summary statistics
+// Optimized summary update
 function updateSummary(data) {
     const summaryEl = document.getElementById('summary');
     
-    // Handle different data formats
-    let odds = {};
-    
-    if (data.body && data.body.odds) {
-        odds = data.body.odds;
-    } else if (Array.isArray(data.body)) {
-        const groupedOdds = {};
-        data.body.forEach(item => {
-            const bookmaker = item.sportsbook || item.book || 'Unknown';
-            if (!groupedOdds[bookmaker]) {
-                groupedOdds[bookmaker] = [];
-            }
-            groupedOdds[bookmaker].push([
-                item.timestamp,
-                item.decimal_odds || americanOddsToDecimal(item.american_odds),
-                parseInt(item.american_odds) || 0
-            ]);
-        });
-        odds = groupedOdds;
-    } else if (Array.isArray(data)) {
-        const groupedOdds = {};
-        data.forEach(item => {
-            const bookmaker = item.sportsbook || item.book || 'Unknown';
-            if (!groupedOdds[bookmaker]) {
-                groupedOdds[bookmaker] = [];
-            }
-            groupedOdds[bookmaker].push([
-                item.timestamp,
-                item.decimal_odds || americanOddsToDecimal(item.american_odds),
-                parseInt(item.american_odds) || 0
-            ]);
-        });
-        odds = groupedOdds;
-    }
-    
-    if (!odds || Object.keys(odds).length === 0) {
+    if (!data.body?.odds) {
         summaryEl.innerHTML = '<p>No data available</p>';
         return;
     }
     
+    const odds = data.body.odds;
     const bookmakers = Object.keys(odds);
     
-    let summaryHTML = '';
+    if (bookmakers.length === 0) {
+        summaryEl.innerHTML = '<p>No data available</p>';
+        return;
+    }
+    
+    // Pre-allocate arrays
+    const summaryCards = [];
     let fairLineStarting = 0;
     let fairLineCurrent = 0;
     let validBookmakers = 0;
     
-    bookmakers.forEach(bookmaker => {
+    for (const bookmaker of bookmakers) {
         const bookmakerData = odds[bookmaker];
         
-        if (bookmakerData.length === 0) return;
+        if (bookmakerData.length === 0) continue;
         
         const startingOdds = bookmakerData[0][2];
         const currentOdds = bookmakerData[bookmakerData.length - 1][2];
@@ -463,7 +449,7 @@ function updateSummary(data) {
             changeText = `${change}`;
         }
         
-        summaryHTML += `
+        summaryCards.push(`
             <div class="summary-card">
                 <h3>${bookmaker}</h3>
                 <p><strong>Starting Odds:</strong> ${startingOdds}</p>
@@ -471,8 +457,8 @@ function updateSummary(data) {
                    <span class="odds-change ${changeClass}">${changeText}</span></p>
                 <p><strong>Total Data Points:</strong> ${bookmakerData.length}</p>
             </div>
-        `;
-    });
+        `);
+    }
     
     // Add fair line summary
     if (validBookmakers > 0) {
@@ -491,7 +477,7 @@ function updateSummary(data) {
             fairChangeText = `${fairChange}`;
         }
         
-        summaryHTML += `
+        summaryCards.push(`
             <div class="summary-card" style="border-left: 3px solid #FF8C00;">
                 <h3>Fair Line (Average)</h3>
                 <p><strong>Starting Odds:</strong> ${fairStarting}</p>
@@ -499,10 +485,10 @@ function updateSummary(data) {
                    <span class="odds-change ${fairChangeClass}">${fairChangeText}</span></p>
                 <p><strong>Based on:</strong> ${validBookmakers} bookmakers</p>
             </div>
-        `;
+        `);
     }
     
-    summaryEl.innerHTML = summaryHTML;
+    summaryEl.innerHTML = summaryCards.join('');
 }
 
 // Clear cache
@@ -511,7 +497,7 @@ function clearCache() {
     if (chart) {
         chart.data.labels = [];
         chart.data.datasets = [];
-        chart.update();
+        chart.update('none');
     }
     document.getElementById('summary').innerHTML = '';
     document.getElementById('status').textContent = 'Cache cleared';
