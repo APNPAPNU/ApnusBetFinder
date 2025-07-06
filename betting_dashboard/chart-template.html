@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Odds Chart</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link rel="stylesheet" href="chart-template.css">
+</head>
+<body>
+    <div class="container">
+        <button class="back-button" onclick="window.close()">← Back to Dashboard</button>
+        
+        <div class="header">
+            <h1 class="title">📈 Historical Odds Analysis</h1>
+            <div class="fair-odds">
+                <div class="fair-odds-label">Fair Line (Average)</div>
+                <div class="fair-odds-value" id="fairOddsValue">Loading...</div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-box">
+                <h3>🎯 Outcome Details</h3>
+                <div id="outcomeInfo">Loading outcome information...</div>
+            </div>
+            <div class="info-box">
+                <h3>🔗 API Endpoint</h3>
+                <div class="url-display" id="apiUrl">Loading...</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="clearBtn" onclick="clearCache()">Clear Cache</button>
+            <div class="interval-control">
+                <label for="dataInterval">Data Interval:</label>
+                <select id="dataInterval" onchange="updateDataInterval()">
+                    <option value="1">Every Point</option>
+                    <option value="2">Every 2nd Point</option>
+                    <option value="3">Every 3rd Point</option>
+                    <option value="5">Every 5th Point</option>
+                    <option value="10" selected>Every 10th Point</option>
+                    <option value="20">Every 20th Point</option>
+                </select>
+            </div>
+            <span id="status">Loading...</span>
+        </div>
+
+        <div class="loading" id="loadingDiv">
+            <div class="loading-spinner"></div>
+            <p>Fetching historical odds data...</p>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="dataInfo" class="data-info">
+            <strong>Data Points:</strong> Showing optimized data points for better performance.
+        </div>
+
+        <div class="chart-container" id="chartContainer" style="display: none;">
+            <canvas id="oddsChart"></canvas>
+        </div>
+
+        <div id="summary" class="summary"></div>
+    </div>
+
+    <script src="chart-template.js"></script>
+</body>
+</html>
