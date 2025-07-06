@@ -11,7 +11,269 @@ body {
     padding: 10px;
     color: #ffffff;
 }
+/* Two-Column Layout for Mobile Cards */
+.two-column-card {
+    background: rgba(26, 31, 46, 0.8);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+}
 
+.two-column-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 212, 255, 0.2);
+    border-color: rgba(0, 212, 255, 0.4);
+}
+
+.two-column-card.clickable {
+    border-left: 4px solid #00d4ff;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.1);
+}
+
+.two-column-card.clickable:hover {
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+}
+
+.left-column {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.right-column {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    min-width: 80px;
+}
+
+.game-two-col {
+    font-size: 14px;
+    font-weight: 600;
+    color: #00d4ff;
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+}
+
+.market-two-col {
+    font-size: 12px;
+    color: #a0aec0;
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.outcome-two-col {
+    font-size: 11px;
+    color: #718096;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.meta-two-col {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: #718096;
+    margin-bottom: 2px;
+}
+
+.book-two-col {
+    background: linear-gradient(135deg, #00d4ff, #0099cc);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 212, 255, 0.3);
+}
+
+.sport-two-col {
+    font-weight: 500;
+    color: #a0aec0;
+}
+
+.live-status-two-col {
+    font-weight: 600;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    text-transform: uppercase;
+}
+
+.live-status-two-col.live {
+    background: rgba(0, 212, 255, 0.2);
+    color: #00d4ff;
+    animation: cyberpunk-blink 1.5s infinite;
+}
+
+.live-status-two-col.prematch {
+    background: rgba(113, 128, 150, 0.2);
+    color: #718096;
+}
+
+.separator {
+    color: #4a5568;
+    font-size: 8px;
+}
+
+.time-two-col {
+    font-size: 10px;
+    color: #4a5568;
+    margin-top: 2px;
+}
+
+.ev-two-col {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.ev-two-col.ev-positive {
+    color: #48bb78;
+    text-shadow: 0 0 8px rgba(72, 187, 120, 0.3);
+}
+
+.ev-two-col.ev-negative {
+    color: #f56565;
+    text-shadow: 0 0 8px rgba(245, 101, 101, 0.3);
+}
+
+.odds-two-col {
+    font-size: 13px;
+    color: #a0aec0;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.actions-two-col {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-two-col {
+    padding: 6px 8px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chart-btn-two-col {
+    background: linear-gradient(135deg, #00d4ff, #0099cc);
+    color: white;
+    box-shadow: 0 2px 6px rgba(0, 212, 255, 0.3);
+}
+
+.bet-btn-two-col {
+    background: linear-gradient(135deg, #48bb78, #38a169);
+    color: white;
+    box-shadow: 0 2px 6px rgba(72, 187, 120, 0.3);
+}
+
+.btn-two-col:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+}
+
+.bet-btn-two-col:hover {
+    box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+}
+
+.btn-two-col:active {
+    transform: translateY(0);
+}
+
+/* No data card styling */
+.no-data-card {
+    background: rgba(26, 31, 46, 0.8);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    color: #a0aec0;
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    backdrop-filter: blur(5px);
+}
+
+/* Responsive adjustments for very small screens */
+@media (max-width: 480px) {
+    .two-column-card {
+        padding: 10px;
+        gap: 8px;
+    }
+    
+    .game-two-col {
+        font-size: 13px;
+    }
+    
+    .market-two-col {
+        font-size: 11px;
+    }
+    
+    .outcome-two-col {
+        font-size: 10px;
+    }
+    
+    .meta-two-col {
+        font-size: 9px;
+    }
+    
+    .ev-two-col {
+        font-size: 16px;
+    }
+    
+    .odds-two-col {
+        font-size: 12px;
+    }
+    
+    .btn-two-col {
+        padding: 5px 6px;
+        font-size: 11px;
+        min-width: 28px;
+    }
+    
+    .right-column {
+        min-width: 70px;
+    }
+}
+
+/* Animation for live status */
+@keyframes cyberpunk-blink {
+    0%, 100% { 
+        opacity: 1; 
+        box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+    }
+    50% { 
+        opacity: 0.6; 
+        box-shadow: 0 0 4px rgba(0, 212, 255, 0.1);
+    }
+}
 .container {
     max-width: 1400px;
     margin: 0 auto;
