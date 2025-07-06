@@ -106,29 +106,51 @@
             <!-- 桌面版表格 -->
             <table id="dataTable" class="desktop-table">
                 <thead>
-                    <tr>
-                        <th data-sort="status">Status <span class="sort-indicator"></span></th>
-                        <th data-sort="book">Book <span class="sort-indicator"></span></th>
-                        <th data-sort="game">Game <span class="sort-indicator"></span></th>
-                        <th data-sort="market">Market <span class="sort-indicator"></span></th>
-                        <th data-sort="ev">EV % <span class="sort-indicator"></span></th>
-                        <th data-sort="odds">Odds <span class="sort-indicator"></span></th>
-                        <th data-sort="prob">True Prob <span class="sort-indicator"></span></th>
-                        <th data-sort="spread">Spread <span class="sort-indicator"></span></th>
-                        <th data-sort="sport">Sport <span class="sort-indicator"></span></th>
-                        <th data-sort="league">League <span class="sort-indicator"></span></th>
-                        <th>Link</th>
-                        <th data-sort="time">Updated <span class="sort-indicator"></span></th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    <tr>
-                        <td colspan="12" class="no-data">
-                            <div class="loading-spinner"></div>
-                            Loading betting data...
-                        </td>
-                    </tr>
-                </tbody>
+    <tr>
+        <th data-sort="status">Status <span class="sort-indicator"></span></th>
+        <th data-sort="book">Book <span class="sort-indicator"></span></th>
+        <th data-sort="game">Game <span class="sort-indicator"></span></th>
+        <th data-sort="market">Market <span class="sort-indicator"></span></th>
+        <th data-sort="outcome_type">Outcome Type <span class="sort-indicator"></span></th>
+        <th data-sort="ev">EV % <span class="sort-indicator"></span></th>
+        <th data-sort="odds">Odds <span class="sort-indicator"></span></th>
+        <th data-sort="prob">True Prob <span class="sort-indicator"></span></th>
+        <th data-sort="spread">Spread <span class="sort-indicator"></span></th>
+        <th data-sort="sport">Sport <span class="sort-indicator"></span></th>
+        <th data-sort="league">League <span class="sort-indicator"></span></th>
+        <th>Link</th>
+        <th>Chart</th>
+        <th data-sort="time">Updated <span class="sort-indicator"></span></th>
+    </tr>
+</thead>
+
+<!-- Update the column filters row -->
+<div class="column-filter-row">
+    <input type="text" placeholder="Filter Status..." data-column="0" class="column-filter-input">
+    <input type="text" placeholder="Filter Book..." data-column="1" class="column-filter-input">
+    <input type="text" placeholder="Filter Game..." data-column="2" class="column-filter-input">
+    <input type="text" placeholder="Filter Market..." data-column="3" class="column-filter-input">
+    <input type="text" placeholder="Filter Outcome Type..." data-column="4" class="column-filter-input">
+    <input type="text" placeholder="Filter EV..." data-column="5" class="column-filter-input">
+    <input type="text" placeholder="Filter Odds..." data-column="6" class="column-filter-input">
+    <input type="text" placeholder="Filter Prob..." data-column="7" class="column-filter-input mobile-hide">
+    <input type="text" placeholder="Filter Spread..." data-column="8" class="column-filter-input mobile-hide">
+    <input type="text" placeholder="Filter Sport..." data-column="9" class="column-filter-input mobile-hide">
+    <input type="text" placeholder="Filter League..." data-column="10" class="column-filter-input mobile-hide">
+    <input type="text" placeholder="Link" data-column="11" class="column-filter-input mobile-hide" disabled>
+    <input type="text" placeholder="Chart" data-column="12" class="column-filter-input mobile-hide" disabled>
+    <input type="text" placeholder="Time" data-column="13" class="column-filter-input mobile-hide" disabled>
+</div>
+
+<!-- Update the loading state colspan -->
+<tbody id="tableBody">
+    <tr>
+        <td colspan="14" class="no-data">
+            <div class="loading-spinner"></div>
+            Loading betting data...
+        </td>
+    </tr>
+</tbody>
             </table>
 
             <!-- 移动端卡片视图 -->
