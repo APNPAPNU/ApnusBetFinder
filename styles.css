@@ -6,19 +6,23 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
     min-height: 100vh;
     padding: 10px;
+    color: #ffffff;
 }
 
 .container {
     max-width: 1400px;
     margin: 0 auto;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(26, 31, 46, 0.95);
     border-radius: 20px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 212, 255, 0.1);
+    backdrop-filter: blur(10px);
     overflow: hidden;
 }
+
 .card-actions {
     display: flex;
     gap: 10px;
@@ -30,45 +34,49 @@ body {
 .mobile-deeplink-btn {
     padding: 8px 12px;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 12px;
     font-weight: bold;
+    transition: all 0.3s ease;
 }
 
 .mobile-chart-btn {
-    background: #3498db;
+    background: linear-gradient(135deg, #00d4ff, #0099cc);
     color: white;
 }
 
 .mobile-deeplink-btn {
-    background: #2ecc71;
+    background: linear-gradient(135deg, #48bb78, #38a169);
     color: white;
 }
 
 .mobile-chart-btn:hover,
 .mobile-deeplink-btn:hover {
-    opacity: 0.8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
 }
 
 .card-market,
 .card-outcome-type {
     font-size: 13px;
-    color: #666;
+    color: #a0aec0;
     margin: 5px 0;
 }
 
 .card-market strong,
 .card-outcome-type strong {
-    color: #333;
+    color: #00d4ff;
 }
+
 .header {
-    background: linear-gradient(135deg, #2c3e50, #3498db);
+    background: linear-gradient(135deg, #1a1f2e, #2d3748);
     color: white;
     padding: 20px;
     text-align: center;
     position: relative;
     overflow: hidden;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.2);
 }
 
 .header::before {
@@ -78,8 +86,8 @@ body {
     left: -50%;
     width: 200%;
     height: 200%;
-    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-    animation: shine 3s infinite;
+    background: linear-gradient(45deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+    animation: shine 4s infinite;
 }
 
 @keyframes shine {
@@ -90,12 +98,14 @@ body {
 .header h1 {
     font-size: 2rem;
     margin-bottom: 5px;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+    color: #00d4ff;
 }
 
 .header p {
     font-size: 0.9rem;
     opacity: 0.9;
+    color: #a0aec0;
 }
 
 .status-bar {
@@ -103,8 +113,8 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 15px 20px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+    background: rgba(45, 55, 72, 0.5);
+    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
     flex-wrap: wrap;
     gap: 8px;
 }
@@ -114,15 +124,18 @@ body {
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: white;
+    background: rgba(26, 31, 46, 0.8);
     border-radius: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    transition: all 0.3s ease;
     font-size: 0.85rem;
+    backdrop-filter: blur(5px);
 }
 
 .status-item:hover {
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
 }
 
 .status-indicator {
@@ -133,55 +146,62 @@ body {
 }
 
 .status-indicator.live {
-    background: #e74c3c;
+    background: #00d4ff;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
 }
 
 .status-indicator.loading {
     background: #f39c12;
+    box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
 }
 
 .status-indicator.success {
-    background: #2ecc71;
+    background: #48bb78;
+    box-shadow: 0 0 10px rgba(72, 187, 120, 0.5);
 }
 
 .status-indicator.paused {
-    background: #95a5a6;
+    background: #718096;
     animation: none;
 }
 
 @keyframes pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    50% { opacity: 0.3; }
 }
-/* Add this to your styles.css file */
 
 .chart-btn {
-    background: #3498db;
+    background: linear-gradient(135deg, #00d4ff, #0099cc);
     color: white;
     border: none;
-    padding: 4px 8px;
-    border-radius: 3px;
+    padding: 6px 12px;
+    border-radius: 6px;
     cursor: pointer;
     font-size: 12px;
-    transition: background-color 0.2s;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
 }
 
 .chart-btn:hover {
-    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.5);
 }
 
 .chart-btn:active {
-    background: #1c5a7e;
+    transform: translateY(0);
 }
+
 .refresh-controls {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: white;
+    background: rgba(26, 31, 46, 0.8);
     padding: 8px 12px;
     border-radius: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 212, 255, 0.2);
     font-size: 0.8rem;
+    backdrop-filter: blur(5px);
 }
 
 .refresh-toggle {
@@ -204,7 +224,7 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #ccc;
+    background-color: #4a5568;
     transition: .4s;
     border-radius: 20px;
 }
@@ -222,7 +242,8 @@ body {
 }
 
 input:checked + .slider {
-    background-color: #2ecc71;
+    background-color: #00d4ff;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
 }
 
 input:checked + .slider:before {
@@ -231,26 +252,26 @@ input:checked + .slider:before {
 
 .refresh-select {
     padding: 4px 8px;
-    border: 1px solid #ddd;
+    border: 1px solid rgba(0, 212, 255, 0.3);
     border-radius: 12px;
     font-size: 11px;
-    background: white;
+    background: rgba(45, 55, 72, 0.8);
+    color: white;
 }
 
-/* 移动端过滤器切换 */
 .mobile-filter-toggle {
     display: none;
     padding: 15px 20px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+    background: rgba(45, 55, 72, 0.5);
+    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
     gap: 10px;
 }
 
 .mobile-filter-toggle button {
     padding: 8px 16px;
-    border: 1px solid #3498db;
-    background: white;
-    color: #3498db;
+    border: 1px solid #00d4ff;
+    background: rgba(26, 31, 46, 0.8);
+    color: #00d4ff;
     border-radius: 20px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -259,16 +280,17 @@ input:checked + .slider:before {
 
 .mobile-filter-toggle button.active,
 .mobile-filter-toggle button:hover {
-    background: #3498db;
-    color: white;
+    background: #00d4ff;
+    color: #1a1f2e;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
 }
 
 .controls {
     display: flex;
     gap: 15px;
     padding: 15px 20px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+    background: rgba(45, 55, 72, 0.5);
+    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
     flex-wrap: wrap;
 }
 
@@ -280,30 +302,33 @@ input:checked + .slider:before {
 
 .filter-group label {
     font-weight: 600;
-    color: #2c3e50;
+    color: #00d4ff;
     font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .filter-input {
     padding: 8px 12px;
-    border: 2px solid #ddd;
+    border: 2px solid rgba(0, 212, 255, 0.3);
     border-radius: 20px;
     font-size: 13px;
     transition: all 0.3s ease;
     min-width: 120px;
+    background: rgba(26, 31, 46, 0.8);
+    color: white;
 }
 
 .filter-input:focus {
-    border-color: #3498db;
+    border-color: #00d4ff;
     outline: none;
-    box-shadow: 0 0 8px rgba(52, 152, 219, 0.3);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
 }
 
-/* 列过滤器 */
 .column-filters {
-    background: #f1f3f4;
+    background: rgba(45, 55, 72, 0.3);
     padding: 8px 20px;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
     overflow-x: auto;
 }
 
@@ -316,20 +341,22 @@ input:checked + .slider:before {
 
 .column-filter-input {
     padding: 4px 8px;
-    border: 1px solid #ddd;
+    border: 1px solid rgba(0, 212, 255, 0.3);
     border-radius: 12px;
     font-size: 11px;
-    background: white;
+    background: rgba(26, 31, 46, 0.8);
+    color: white;
     transition: border-color 0.2s ease;
 }
 
 .column-filter-input:focus {
-    border-color: #3498db;
+    border-color: #00d4ff;
     outline: none;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
 }
 
 .column-filter-input:disabled {
-    background: #f5f5f5;
+    background: rgba(74, 85, 104, 0.5);
     cursor: not-allowed;
 }
 
@@ -340,11 +367,10 @@ input:checked + .slider:before {
     position: relative;
 }
 
-/* 桌面表格 */
 .desktop-table {
     width: 100%;
     border-collapse: collapse;
-    background: white;
+    background: rgba(26, 31, 46, 0.8);
     font-size: 13px;
     min-width: 1000px;
 }
@@ -352,7 +378,7 @@ input:checked + .slider:before {
 .desktop-table thead {
     position: sticky;
     top: 0;
-    background: linear-gradient(135deg, #2c3e50, #3498db);
+    background: linear-gradient(135deg, #1a1f2e, #2d3748);
     color: white;
     z-index: 10;
 }
@@ -361,7 +387,7 @@ input:checked + .slider:before {
 .desktop-table td {
     padding: 10px 12px;
     text-align: left;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.1);
     white-space: nowrap;
 }
 
@@ -373,15 +399,17 @@ input:checked + .slider:before {
     cursor: pointer;
     position: relative;
     user-select: none;
+    color: #00d4ff;
 }
 
 .desktop-table th:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(0, 212, 255, 0.1);
 }
 
 .sort-indicator {
     margin-left: 5px;
     opacity: 0.5;
+    color: #00d4ff;
 }
 
 .sort-indicator.asc::after {
@@ -400,15 +428,15 @@ input:checked + .slider:before {
 }
 
 .desktop-table tbody tr:hover {
-    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-    transform: scale(1.005);
+    background: rgba(0, 212, 255, 0.1);
+    transform: scale(1.002);
 }
 
 .desktop-table tbody tr.clickable:hover {
-    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    background: rgba(0, 212, 255, 0.2);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.1);
 }
 
-/* 移动端卡片视图 */
 .mobile-cards {
     display: none;
     padding: 15px;
@@ -417,21 +445,25 @@ input:checked + .slider:before {
 }
 
 .bet-card {
-    background: white;
+    background: rgba(26, 31, 46, 0.8);
     border-radius: 12px;
     padding: 15px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    transition: all 0.3s ease;
     cursor: pointer;
+    backdrop-filter: blur(5px);
 }
 
 .bet-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 212, 255, 0.2);
+    border-color: rgba(0, 212, 255, 0.4);
 }
 
 .bet-card.clickable {
-    border-left: 4px solid #3498db;
+    border-left: 4px solid #00d4ff;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.1);
 }
 
 .card-header {
@@ -443,7 +475,7 @@ input:checked + .slider:before {
 
 .card-game {
     font-weight: 600;
-    color: #2c3e50;
+    color: #00d4ff;
     font-size: 0.95rem;
 }
 
@@ -468,13 +500,13 @@ input:checked + .slider:before {
 }
 
 .card-detail .label {
-    color: #7f8c8d;
+    color: #a0aec0;
     font-weight: 500;
 }
 
 .card-detail .value {
     font-weight: 600;
-    color: #2c3e50;
+    color: #ffffff;
 }
 
 .card-footer {
@@ -482,27 +514,28 @@ input:checked + .slider:before {
     justify-content: space-between;
     align-items: center;
     padding-top: 10px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid rgba(0, 212, 255, 0.1);
 }
 
 .card-book {
-    background: #3498db;
+    background: linear-gradient(135deg, #00d4ff, #0099cc);
     color: white;
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 212, 255, 0.3);
 }
 
 .card-time {
-    color: #7f8c8d;
+    color: #a0aec0;
     font-size: 0.75rem;
 }
 
 .loading-card {
     text-align: center;
     padding: 40px;
-    color: #7f8c8d;
+    color: #a0aec0;
 }
 
 .live-indicator {
@@ -514,53 +547,58 @@ input:checked + .slider:before {
 }
 
 .live-indicator.live {
-    background: #e74c3c;
-    animation: blink 1s infinite;
+    background: #00d4ff;
+    animation: cyberpunk-blink 1s infinite;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
 }
 
 .live-indicator.prematch {
-    background: #95a5a6;
+    background: #718096;
 }
 
-@keyframes blink {
+@keyframes cyberpunk-blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
 }
 
 .deeplink {
-    color: #3498db;
+    color: #00d4ff;
     text-decoration: none;
     font-weight: 500;
     transition: all 0.3s ease;
     padding: 4px 8px;
     border-radius: 12px;
-    background: rgba(52, 152, 219, 0.1);
+    background: rgba(0, 212, 255, 0.1);
     display: inline-block;
     font-size: 0.8rem;
+    border: 1px solid rgba(0, 212, 255, 0.2);
 }
 
 .deeplink:hover {
-    background: #3498db;
-    color: white;
-    transform: translateY(-1px);
+    background: #00d4ff;
+    color: #1a1f2e;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.4);
 }
 
 .ev-positive {
-    color: #27ae60;
+    color: #48bb78;
     font-weight: bold;
+    text-shadow: 0 0 8px rgba(72, 187, 120, 0.3);
 }
 
 .ev-negative {
-    color: #e74c3c;
+    color: #f56565;
     font-weight: bold;
+    text-shadow: 0 0 8px rgba(245, 101, 101, 0.3);
 }
 
 .loading-spinner {
     display: inline-block;
     width: 18px;
     height: 18px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid #3498db;
+    border: 2px solid rgba(0, 212, 255, 0.3);
+    border-top: 2px solid #00d4ff;
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -571,22 +609,24 @@ input:checked + .slider:before {
 }
 
 .error-message {
-    background: #e74c3c;
-    color: white;
+    background: rgba(245, 101, 101, 0.1);
+    color: #f56565;
     padding: 15px;
     margin: 20px;
     border-radius: 10px;
     text-align: center;
+    border: 1px solid rgba(245, 101, 101, 0.3);
+    backdrop-filter: blur(5px);
 }
 
 .no-data {
     text-align: center;
     padding: 40px;
-    color: #7f8c8d;
+    color: #a0aec0;
     font-size: 1rem;
 }
 
-/* 响应式设计 */
+/* Responsive Design */
 @media (max-width: 1024px) {
     .column-filter-row {
         grid-template-columns: 70px 90px 1fr 130px 70px 70px 80px 70px 70px 70px 50px 70px;
