@@ -192,24 +192,40 @@ class BettingDataScraper {
         }
     }
 
-    openHistoricalChart(outcomeId, isLive, spread) {
-        // Clean the outcome_id - remove _ALT suffix (case insensitive)
-        const cleanOutcomeId = outcomeId.replace(/_alt$/i, '');
-        
-        // Get current timestamp
-        const currentTimestamp = Date.now();
-        
-        // Build the URL
-        let url = `https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getHistoricalOdds?outcome_id=${cleanOutcomeId}&live=${isLive}&from=${currentTimestamp}`;
-        
-        console.log('Opening historical chart with URL:', url);
-        
-        // Create the template page URL with encoded parameters
-        const templateUrl = `chart-template.html?api_url=${encodeURIComponent(url)}`;
-        
-        // Open in new window
-        window.open(templateUrl, '_blank');
-    }
+   openHistoricalChart(outcomeId, isLive, spread, record) {
+    // Clean the outcome_id - remove _ALT suffix (case insensitive)
+    const cleanOutcomeId = outcomeId.replace(/_alt$/i, '');
+    
+    // Get current timestamp
+    const currentTimestamp = Date.now();
+    
+    // Build the URL
+    let url = `https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getHistoricalOdds?outcome_id=${cleanOutcomeId}&live=${isLive}&from=${currentTimestamp}`;
+    
+    console.log('Opening historical chart with URL:', url);
+    
+    // Prepare additional parameters to pass to the chart
+    const chartParams = {
+        api_url: url,
+        game_name: encodeURIComponent(this.formatGameName(record)),
+        market_name: encodeURIComponent(record.display_name || record.market_type || 'Unknown Market'),
+        outcome_type: encodeURIComponent(record.outcome_type || 'Unknown Type'),
+        ev_value: record.ev ? (record.ev * 100).toFixed(2) + '%' : 'N/A',
+        book_name: encodeURIComponent(record.book || 'Unknown'),
+        sport: encodeURIComponent(record.sport || 'Unknown'),
+        league: encodeURIComponent(record.league || 'Unknown')
+    };
+    
+    // Create URL with all parameters
+    const paramString = Object.entries(chartParams)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('&');
+    
+    const templateUrl = `chart-template.html?${paramString}`;
+    
+    // Open in new window
+    window.open(templateUrl, '_blank');
+}
 
     async fetchOpenOddsData() {
         const livePayload = {
@@ -655,57 +671,55 @@ class BettingDataScraper {
         }
     }
 
-    // MISSING METHOD - This was causing the error
-    renderDesktopTable() {
-        const tbody = document.getElementById('tableBody');
-        
-        if (this.filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="14" class="no-data">No data matches current filters</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = this.filteredData.map(record => `
-            <tr data-link="${record.deeplink || ''}" class="${record.deeplink ? 'clickable' : ''}">
-                <td>
-                    <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
-                    <span>${record.live ? 'LIVE' : 'Pre'}</span>
-                </td>
-                <td>${record.book || ''}</td>
-                <td>${this.formatGameName(record)}</td>
-                <td>${record.display_name || record.market_type || ''}</td>
-                <td>${record.outcome_type || ''}</td>
-                <td class="${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
-                    ${record.ev ? (record.ev * 100).toFixed(2) + '%' : ''}
-                </td>
-                <td>${record.american_odds || ''}</td>
-                <td class="mobile-hide">${record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : ''}</td>
-                <td class="mobile-hide">${record.spread || ''}</td>
-                <td class="mobile-hide">${record.sport || ''}</td>
-                <td class="mobile-hide">${record.league || ''}</td>
-                <td class="mobile-hide">
-                    ${record.deeplink ? `<button class="deeplink" onclick="window.open('${record.deeplink}', '_blank')">🎯</button>` : ''}
-                </td>
-                <td class="mobile-hide">
-                    <button class="chart-btn" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}')">📊</button>
-                </td>
-                <td class="mobile-hide">${this.formatTimestamp(record.last_ts)}</td>
-            </tr>
-        `).join('');
-
-        // Add click handlers for clickable rows
-        tbody.querySelectorAll('tr.clickable').forEach(row => {
-            row.addEventListener('click', (e) => {
-                // Don't trigger row click if button was clicked
-                if (e.target.tagName === 'BUTTON') return;
-                
-                const link = row.dataset.link;
-                if (link) {
-                    window.open(link, '_blank');
-                }
-            });
-        });
+   renderDesktopTable() {
+    const tbody = document.getElementById('tableBody');
+    
+    if (this.filteredData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="14" class="no-data">No data matches current filters</td></tr>';
+        return;
     }
 
+    tbody.innerHTML = this.filteredData.map((record, index) => `
+        <tr data-link="${record.deeplink || ''}" class="${record.deeplink ? 'clickable' : ''}">
+            <td>
+                <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
+                <span>${record.live ? 'LIVE' : 'Pre'}</span>
+            </td>
+            <td>${record.book || ''}</td>
+            <td>${this.formatGameName(record)}</td>
+            <td>${record.display_name || record.market_type || ''}</td>
+            <td>${record.outcome_type || ''}</td>
+            <td class="${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
+                ${record.ev ? (record.ev * 100).toFixed(2) + '%' : ''}
+            </td>
+            <td>${record.american_odds || ''}</td>
+            <td class="mobile-hide">${record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : ''}</td>
+            <td class="mobile-hide">${record.spread || ''}</td>
+            <td class="mobile-hide">${record.sport || ''}</td>
+            <td class="mobile-hide">${record.league || ''}</td>
+            <td class="mobile-hide">
+                ${record.deeplink ? `<button class="deeplink" onclick="window.open('${record.deeplink}', '_blank')">🎯</button>` : ''}
+            </td>
+            <td class="mobile-hide">
+                <button class="chart-btn" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}', dashboard.filteredData[${index}])">📊</button>
+            </td>
+            <td class="mobile-hide">${this.formatTimestamp(record.last_ts)}</td>
+        </tr>
+    `).join('');
+
+    // Add click handlers for clickable rows
+    tbody.querySelectorAll('tr.clickable').forEach(row => {
+        row.addEventListener('click', (e) => {
+            // Don't trigger row click if button was clicked
+            if (e.target.tagName === 'BUTTON') return;
+            
+            const link = row.dataset.link;
+            if (link) {
+                window.open(link, '_blank');
+            }
+        });
+    });
+}
     renderMobileCards() {
         const container = document.getElementById('mobileCards');
         
