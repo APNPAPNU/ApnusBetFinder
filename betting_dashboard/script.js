@@ -1,544 +1,917 @@
-// Cache for storing odds data
-let oddsCache = {};
-let chart = null;
-let dataInterval = 2; // Default to every 2nd point
-let apiUrl = '';
-
-// Parse URL parameters
-const urlParams = new URLSearchParams(window.location.search);
-apiUrl = urlParams.get('api_url');
-
-// Display API URL
-document.getElementById('apiUrl').textContent = apiUrl || 'No URL provided';
-
-// Extract outcome info from URL
-if (apiUrl) {
-    const url = new URL(apiUrl);
-    const outcomeId = url.searchParams.get('outcome_id');
-    const isLive = url.searchParams.get('live');
-    const spread = url.searchParams.get('spread');
-    
-    let outcomeInfo = `<strong>Outcome ID:</strong> ${outcomeId}<br>`;
-    outcomeInfo += `<strong>Type:</strong> ${isLive === 'true' ? 'LIVE' : 'Pre-match'}<br>`;
-    if (spread) {
-        outcomeInfo += `<strong>Spread:</strong> ${spread}`;
+class BettingDataScraper {
+    constructor() {
+        this.data = [];
+        this.filteredData = [];
+        this.refreshInterval = null;
+        this.isLoading = false;
+        this.refreshIntervalTime = 12000;
+        this.autoRefreshEnabled = false;
+        this.isMobileView = window.innerWidth <= 768;
+        this.sortColumn = null;
+        this.sortDirection = 'asc';
+        this.columnFilters = {};
+        
+        this.init();
     }
-    
-    document.getElementById('outcomeInfo').innerHTML = outcomeInfo;
-}
 
-// Initialize chart
-function initChart() {
-    const ctx = document.getElementById('oddsChart').getContext('2d');
-    chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: []
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false,
+    init() {
+        this.setupEventListeners();
+        this.setupMobileHandlers();
+        this.setupColumnFilters();
+        this.setupSorting();
+        this.startAutoRefresh();
+        this.fetchData();
+    }
+
+    setupEventListeners() {
+        // 原有过滤器
+        ['bookFilter', 'sportFilter', 'evFilter', 'liveFilter', 'searchFilter'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => this.applyFilters());
+            document.getElementById(id).addEventListener('input', () => this.applyFilters());
+        });
+
+        // 刷新控制
+        document.getElementById('refreshToggle').addEventListener('change', (e) => {
+            this.autoRefreshEnabled = e.target.checked;
+            if (this.autoRefreshEnabled) {
+                this.startAutoRefresh();
+                this.updateStatus('Auto refresh enabled', 'success');
+            } else {
+                this.stopAutoRefresh();
+                this.updateStatus('Auto refresh paused', 'paused');
+            }
+        });
+
+        document.getElementById('refreshInterval').addEventListener('change', (e) => {
+            this.refreshIntervalTime = parseInt(e.target.value) * 1000;
+            if (this.autoRefreshEnabled) {
+                this.startAutoRefresh();
+            }
+        });
+
+        // 窗口大小变化
+        window.addEventListener('resize', () => {
+            const wasMobile = this.isMobileView;
+            this.isMobileView = window.innerWidth <= 768;
+            if (wasMobile !== this.isMobileView) {
+                this.renderTable();
+            }
+        });
+    }
+
+    setupMobileHandlers() {
+        // 过滤器切换
+        document.getElementById('toggleFilters').addEventListener('click', () => {
+            const controls = document.getElementById('filterControls');
+            const columnFilters = document.getElementById('columnFilters');
+            const isHidden = controls.style.display === 'none';
+            
+            controls.style.display = isHidden ? 'flex' : 'none';
+            columnFilters.style.display = isHidden ? 'block' : 'none';
+        });
+
+        // 视图切换
+        document.getElementById('toggleView').addEventListener('click', () => {
+            const table = document.getElementById('dataTable');
+            const cards = document.getElementById('mobileCards');
+            const isTableVisible = table.style.display !== 'none';
+            
+            table.style.display = isTableVisible ? 'none' : 'table';
+            cards.style.display = isTableVisible ? 'block' : 'none';
+        });
+
+        // 初始移动端状态
+        if (this.isMobileView) {
+            document.getElementById('filterControls').style.display = 'none';
+            document.getElementById('columnFilters').style.display = 'none';
+        }
+    }
+
+    setupColumnFilters() {
+        const columnInputs = document.querySelectorAll('.column-filter-input');
+        columnInputs.forEach((input, index) => {
+            if (!input.disabled) {
+                input.addEventListener('input', (e) => {
+                    this.columnFilters[index] = e.target.value.toLowerCase();
+                    this.applyFilters();
+                });
+            }
+        });
+    }
+
+    setupSorting() {
+        const headers = document.querySelectorAll('th[data-sort]');
+        headers.forEach(header => {
+            header.addEventListener('click', () => {
+                const column = header.dataset.sort;
+                if (this.sortColumn === column) {
+                    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    this.sortColumn = column;
+                    this.sortDirection = 'asc';
+                }
+                this.updateSortIndicators();
+                this.applyFilters();
+            });
+        });
+    }
+
+    updateSortIndicators() {
+        document.querySelectorAll('.sort-indicator').forEach(indicator => {
+            indicator.textContent = '';
+        });
+        
+        if (this.sortColumn) {
+            const header = document.querySelector(`th[data-sort="${this.sortColumn}"] .sort-indicator`);
+            if (header) {
+                header.textContent = this.sortDirection === 'asc' ? '↑' : '↓';
+            }
+        }
+    }
+
+    startAutoRefresh() {
+        this.stopAutoRefresh();
+        if (this.autoRefreshEnabled && !this.isLoading) {
+            this.refreshInterval = setInterval(() => {
+                if (!this.isLoading) {
+                    this.fetchData();
+                }
+            }, this.refreshIntervalTime);
+        }
+    }
+
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+    }
+
+    updateStatus(text, type = 'loading') {
+        const indicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        
+        indicator.className = `status-indicator ${type}`;
+        statusText.textContent = text;
+    }
+
+    async fetchData() {
+        if (this.isLoading) return;
+        
+        this.isLoading = true;
+        this.updateStatus('Fetching data...', 'loading');
+        
+        // Stop auto refresh while loading
+        this.stopAutoRefresh();
+
+        try {
+            const [openoddsData, cloudfrontData, awsData] = await Promise.all([
+                this.fetchOpenOddsData(),
+                this.fetchCloudfrontData(),
+                this.fetchAWSData()
+            ]);
+
+            this.data = await this.processData(openoddsData, cloudfrontData, awsData);
+            this.updateFilterOptions();
+            this.applyFilters();
+            
+            this.updateStatus(`Data updated`, 'success');
+            document.getElementById('lastUpdate').textContent = `Last: ${this.formatTimestampEST(new Date())}`;
+            
+        } catch (error) {
+            console.error('获取数据错误:', error);
+            this.updateStatus('Error fetching data', 'error');
+            this.showError('Failed to fetch betting data.');
+        }
+        
+        this.isLoading = false;
+        
+        // Restart auto refresh only after everything is complete
+        if (this.autoRefreshEnabled) {
+            this.startAutoRefresh();
+        }
+    }
+
+    openHistoricalChart(outcomeId, isLive, spread) {
+        // Clean the outcome_id - remove _ALT suffix (case insensitive)
+        const cleanOutcomeId = outcomeId.replace(/_alt$/i, '');
+        
+        // Get current timestamp
+        const currentTimestamp = Date.now();
+        
+        // Build the URL
+        let url = `https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getHistoricalOdds?outcome_id=${cleanOutcomeId}&live=${isLive}&from=${currentTimestamp}`;
+        
+        console.log('Opening historical chart with URL:', url);
+        
+        // Create the template page URL with encoded parameters
+        const templateUrl = `chart-template.html?api_url=${encodeURIComponent(url)}`;
+        
+        // Open in new window
+        window.open(templateUrl, '_blank');
+    }
+
+    async fetchOpenOddsData() {
+        const livePayload = {
+            keys: ["ev_stream"],
+            filters: {
+                filtered_sportsbooks: ["DRAFTKINGS","FANDUEL","BETMGM","CAESARS","ESPN","HARDROCK","BALLYBET","BETONLINE","BET365","FANATICS","FLIFF", "NONE"],
+                must_have_sportsbooks: [""]
             },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Time',
-                        color: '#a0aec0'
+            filter: {}
+        };
+
+        const prematchPayload = {
+            keys: ["ev_stream_prematch"],
+            filters: {
+                filtered_sportsbooks: ["DRAFTKINGS","FANDUEL","BETMGM","CAESARS","ESPN","HARDROCK","BALLYBET","BETONLINE","BET365","FANATICS","FLIFF","NONE"],
+                must_have_sportsbooks: [""]
+            },
+            filter: {}
+        };
+
+        try {
+            const [liveResponse, prematchResponse] = await Promise.all([
+                fetch('https://api.openodds.gg/getData', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                     },
-                    ticks: {
-                        color: '#a0aec0'
+                    body: JSON.stringify(livePayload)
+                }),
+                fetch('https://api.openodds.gg/getData', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                     },
-                    grid: {
-                        color: '#4a5568'
-                    }
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: 'American Odds',
-                        color: '#a0aec0'
-                    },
-                    ticks: {
-                        color: '#a0aec0'
-                    },
-                    grid: {
-                        color: '#4a5568'
+                    body: JSON.stringify(prematchPayload)
+                })
+            ]);
+
+            const liveData = liveResponse.ok ? await liveResponse.json() : [];
+            const prematchData = prematchResponse.ok ? await prematchResponse.json() : [];
+
+            liveData.forEach(item => item._is_live = true);
+            prematchData.forEach(item => item._is_live = false);
+
+            return [...liveData, ...prematchData];
+        } catch (error) {
+            console.error('OpenOdds数据错误:', error);
+            return [];
+        }
+    }
+
+    async fetchCloudfrontData() {
+        try {
+            const response = await fetch('https://d6ailk8q6o27n.cloudfront.net/livegames');
+            if (!response.ok) return [];
+            
+            const data = await response.json();
+            if (data.body) {
+                const games = [];
+                if (data.body.prematch_games) games.push(...data.body.prematch_games);
+                if (data.body.live_games) games.push(...data.body.live_games);
+                return games;
+            }
+            return [];
+        } catch (error) {
+            console.error('Cloudfront数据错误:', error);
+            return [];
+        }
+    }
+
+    async fetchAWSData() {
+        const sports = ["basketball", "baseball", "football", "soccer", "hockey","tennis"];
+        let allData = {};
+
+        for (const sport of sports) {
+            try {
+                const response = await fetch(`https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getLiveGames?sport=${sport}&live=false`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const games = data.body || data;
+                    Object.assign(allData, games);
+                }
+            } catch (error) {
+                console.error(`AWS ${sport}数据错误:`, error);
+            }
+        }
+
+        return allData;
+    }
+
+    async processData(openoddsData, cloudfrontData, awsData) {
+        const processed = [];
+        const gameInfoCache = new Map(); // Cache game info lookups
+
+        for (const item of openoddsData) {
+            if (item.channel && item.channel.includes("ev_stream") && item.payload) {
+                for (const payloadItem of item.payload) {
+                    try {
+                        const record = {
+                            live: item._is_live || false,
+                            outcome_id: payloadItem.outcome_id,
+                            book: payloadItem.book,
+                            spread: payloadItem.spread,
+                            message: payloadItem.message,
+                            ev: payloadItem.ev_model?.ev,
+                            last_ts: payloadItem.ev_model?.last_ts,
+                            american_odds: payloadItem.ev_model?.american_odds,
+                            true_prob: payloadItem.ev_model?.true_prob,
+                            deeplink: payloadItem.ev_model?.deeplink,
+                            ev_spread: payloadItem.ev_model?.spread
+                        };
+
+                        // Use cached game info if available
+                        let gameInfo;
+                        if (gameInfoCache.has(record.outcome_id)) {
+                            gameInfo = gameInfoCache.get(record.outcome_id);
+                        } else {
+                            gameInfo = this.findGameInfo(record.outcome_id, cloudfrontData, awsData);
+                            gameInfoCache.set(record.outcome_id, gameInfo);
+                        }
+                        
+                        Object.assign(record, gameInfo);
+
+                        if (record.outcome_id && !record._needsAdditionalLookup) {
+                            processed.push(record);
+                        }
+                    } catch (error) {
+                        console.error('Processing record error:', error);
                     }
                 }
-            },
-            plugins: {
-                tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    backgroundColor: '#2d3748',
-                    titleColor: '#00d4ff',
-                    bodyColor: '#ffffff',
-                    borderColor: '#4a5568',
-                    borderWidth: 1,
-                    callbacks: {
-                        title: function(context) {
-                            return 'Time: ' + context[0].label;
-                        },
-                        afterBody: function(context) {
-                            // Calculate fair line (average) for tooltip
-                            const validOdds = context
-                                .filter(item => item.raw !== null && item.raw !== undefined)
-                                .map(item => item.raw);
+            }
+        }
+
+        return processed;
+    }
+
+    findGameInfo(outcomeId, cloudfrontData, awsData) {
+        const info = {};
+        
+        for (const game of cloudfrontData) {
+            if (game.markets) {
+                for (const [marketId, market] of Object.entries(game.markets)) {
+                    if (market.outcomes) {
+                        for (const outcome of Object.values(market.outcomes)) {
+                            // Strip _ALT suffix for matching
+                            const cleanOutcomeId = outcome.outcome_id.replace(/_ALT$/, '');
+                            const cleanSearchId = outcomeId.replace(/_ALT$/, '');
                             
-                            if (validOdds.length > 0) {
-                                const average = validOdds.reduce((a, b) => a + b, 0) / validOdds.length;
-                                return [`Fair Line (Average): ${Math.round(average)}`];
+                            if (outcome.outcome_id === outcomeId || cleanOutcomeId === cleanSearchId) {
+                                info.market_id = marketId;
+                                info.market_type = market.market_type;
+                                info.display_name = market.display_name;
+                                info.game_name = game.game_name;
+                                info.home_team = game.home_team;
+                                info.away_team = game.away_team;
+                                info.sport = game.sport;
+                                info.league = game.league;
+                                info.player_1 = game.player_1;
+                                info.player_2 = game.player_2;
+                                info.outcome_type = outcome.outcome_type;
+                                
+                                if (info.market_id && awsData) {
+                                    for (const [gameId, awsGame] of Object.entries(awsData)) {
+                                        if (awsGame.markets && awsGame.markets[info.market_id]) {
+                                            info.aws_game_date = awsGame.game_date;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                return info;
                             }
-                            return [];
                         }
                     }
-                },
-                legend: {
-                    display: true,
-                    labels: {
-                        color: '#a0aec0'
-                    }
-                }
-            },
-            elements: {
-                point: {
-                    radius: 2,
-                    hoverRadius: 4
-                },
-                line: {
-                    tension: 0.1
                 }
             }
         }
-    });
-}
-
-// Filter data points based on interval
-function filterDataByInterval(data, interval) {
-    if (interval === 1) return data;
-    
-    return data.filter((item, index) => {
-        // Always include the first and last points
-        if (index === 0 || index === data.length - 1) {
-            return true;
-        }
-        // Include every nth point
-        return index % interval === 0;
-    });
-}
-
-// Update data interval
-function updateDataInterval() {
-    const select = document.getElementById('dataInterval');
-    dataInterval = parseInt(select.value);
-    
-    // Re-render chart with cached data if available
-    if (oddsCache && oddsCache.body && oddsCache.body.odds) {
-        updateChart(oddsCache);
+        
+        console.log(`❌ No match found in cloudfrontData for outcome_id: ${outcomeId}`);
+        
+        // If not found, mark for additional lookup
+        info._needsAdditionalLookup = true;
+        info.outcome_id = outcomeId;
+        return info;
     }
-}
 
-function updateStatus(message, type = 'loading') {
-    const statusEl = document.getElementById('status');
-    statusEl.textContent = message;
-}
-
-async function fetchAndDisplayData() {
-    const fetchButton = document.getElementById('clearBtn');
-    if (fetchButton) fetchButton.disabled = true;
-    
-    try {
-        const statusEl = document.getElementById('status');
-        statusEl.textContent = 'Making first API call (live=false)...';
-        
-        // Calculate time range (6 hours before current time to current time)
-        const currentTime = new Date();
-        const sixHoursAgo = new Date(currentTime.getTime() - (6 * 60 * 60 * 1000));
-
-        // Convert to Unix timestamps in milliseconds
-        const fromTime = sixHoursAgo.getTime();
-        const toTime = currentTime.getTime();
-
-        // Construct the first URL with proper time range
-        const baseUrl = apiUrl.split('?')[0]; // Get base URL without query params
-        const urlParams = new URLSearchParams(apiUrl.split('?')[1]); // Get existing params
-        urlParams.set('live', 'true');
-        urlParams.set('from', fromTime.toString());
-        urlParams.set('to', toTime.toString());
-        const firstUrl = `${baseUrl}?${urlParams.toString()}`;
-        
-        const firstResponse = await fetch(firstUrl);
-        const firstData = await firstResponse.json();
-        
-        statusEl.textContent = 'Finding closest time to current time...';
-        let closestTime = null;
-        let minDiff = Infinity;
-
-        // Search through all sportsbooks for the closest time
-        if (firstData.body && firstData.body.odds) {
-            for (const [sportsbook, odds] of Object.entries(firstData.body.odds)) {
-                for (const entry of odds) {
-                    const entryTime = new Date(entry[0]);
-                    const diff = Math.abs(entryTime - currentTime);
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        closestTime = entryTime;
+    async findGameInfoFromCloudfront(outcomeId) {
+        try {
+            console.log(`🔍 Making additional CloudFront call for outcome_id: ${outcomeId}`);
+            
+            const response = await fetch('https://d6ailk8q6o27n.cloudfront.net/livegames');
+            if (!response.ok) {
+                console.log(`❌ CloudFront API call failed with status: ${response.status}`);
+                return {};
+            }
+            
+            const data = await response.json();
+            const allGames = [];
+            
+            if (data.body) {
+                if (data.body.prematch_games) allGames.push(...data.body.prematch_games);
+                if (data.body.live_games) allGames.push(...data.body.live_games);
+            }
+            
+            console.log(`📊 Checking ${allGames.length} games from additional CloudFront call`);
+            
+            for (const game of allGames) {
+                if (game.markets) {
+                    for (const [marketId, market] of Object.entries(game.markets)) {
+                        if (market.outcomes) {
+                            for (const outcome of Object.values(market.outcomes)) {
+                                if (outcome.outcome_id === outcomeId) {
+                                    console.log(`✅ Found match in additional CloudFront call for ${outcomeId}`);
+                                    
+                                    return {
+                                        market_id: marketId,
+                                        market_type: market.market_type,
+                                        display_name: market.display_name,
+                                        game_name: game.game_name,
+                                        home_team: game.home_team,
+                                        away_team: game.away_team,
+                                        sport: game.sport,
+                                        league: game.league,
+                                        player_1: game.player_1,
+                                        player_2: game.player_2,
+                                        outcome_type: outcome.outcome_type
+                                    };
+                                }
+                            }
+                        }
                     }
                 }
             }
+            
+            console.log(`❌ Still no match found in additional CloudFront call for outcome_id: ${outcomeId}`);
+            return {};
+        } catch (error) {
+            console.error('Error fetching additional game info:', error);
+            return {};
         }
-
-        // If no data found, use current time
-        if (!closestTime) {
-            closestTime = currentTime;
-        }
-        
-        // Convert to Unix timestamp and add 5 minutes
-        const unixTime = Math.floor(closestTime.getTime() / 1000);
-        const unixTimePlus5Min = unixTime + (5 * 60);
-        const unixTimeMillisPlus5Min = unixTimePlus5Min * 1000;
-        
-        statusEl.textContent = 'Making second API call (live=true) with adjusted time...';
-        
-        // Second API call with live=true and adjusted time
-        const secondUrlParams = new URLSearchParams(firstUrl.split('?')[1]);
-        secondUrlParams.set('live', 'false');
-        secondUrlParams.set('from', unixTimeMillisPlus5Min.toString());
-        const secondUrl = `${baseUrl}?${secondUrlParams.toString()}`;
-        
-        const secondResponse = await fetch(secondUrl);
-        const secondData = await secondResponse.json();
-        
-        statusEl.textContent = 'Combining and processing data...';
-        
-        // Combine data from both calls
-        let combinedData = {};
-        
-        // Add data from first call
-        for (const [sportsbook, odds] of Object.entries(firstData.body.odds)) {
-            if (!combinedData[sportsbook]) {
-                combinedData[sportsbook] = [];
-            }
-            combinedData[sportsbook] = [...odds];
-        }
-        
-        // Add data from second call
-        for (const [sportsbook, odds] of Object.entries(secondData.body.odds)) {
-            if (!combinedData[sportsbook]) {
-                combinedData[sportsbook] = [];
-            }
-            combinedData[sportsbook] = [...combinedData[sportsbook], ...odds];
-        }
-        
-        // Sort each sportsbook's data by time
-        for (const sportsbook in combinedData) {
-            combinedData[sportsbook].sort((a, b) => new Date(a[0]) - new Date(b[0]));
-        }
-        
-        // Cache the combined data
-        oddsCache = { body: { odds: combinedData } };
-        
-        updateChart(oddsCache);
-        updateSummary(oddsCache);
-        
-        // Show chart container and hide loading
-        document.getElementById('chartContainer').style.display = 'block';
-        document.getElementById('loadingDiv').style.display = 'none';
-        
-        statusEl.textContent = 'Data loaded successfully';
-        
-    } catch (error) {
-        console.error('Error fetching data:', error);
-        document.getElementById('error').textContent = `❌ Error: ${error.message}`;
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('loadingDiv').style.display = 'none';
-    } finally {
-        if (fetchButton) fetchButton.disabled = false;
     }
+
+    updateFilterOptions() {
+        const books = [...new Set(this.data.map(d => d.book).filter(Boolean))].sort();
+        this.updateSelectOptions('bookFilter', books);
+
+        const sports = [...new Set(this.data.map(d => d.sport).filter(Boolean))].sort();
+        this.updateSelectOptions('sportFilter', sports);
+    }
+
+    updateSelectOptions(selectId, options) {
+        const select = document.getElementById(selectId);
+        const currentValue = select.value;
+        
+        select.innerHTML = select.children[0].outerHTML;
+        
+        options.forEach(option => {
+            const optionElement = document.createElement('option');
+            optionElement.value = option;
+            optionElement.textContent = option;
+            select.appendChild(optionElement);
+        });
+        
+        select.value = currentValue;
+    }
+
+    applyFilters() {
+        let filtered = this.data;
+
+        // Chain filters for better performance
+        const bookFilter = document.getElementById('bookFilter').value;
+        const sportFilter = document.getElementById('sportFilter').value;
+        const evFilterInput = document.getElementById('evFilter').value;
+        const liveFilter = document.getElementById('liveFilter').value;
+        const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+        
+        if (bookFilter) {
+            filtered = filtered.filter(d => d.book === bookFilter);
+        }
+
+        if (sportFilter) {
+            filtered = filtered.filter(d => d.sport === sportFilter);
+        }
+
+        if (evFilterInput !== '' && !isNaN(evFilterInput)) {
+            const evThreshold = parseFloat(evFilterInput) / 100;
+            filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
+        }
+
+        if (liveFilter !== '') {
+            const isLive = liveFilter === 'true';
+            filtered = filtered.filter(d => d.live === isLive);
+        }
+
+        if (searchFilter) {
+            filtered = filtered.filter(d => 
+                (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
+                (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
+                (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
+                (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
+                (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
+                (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
+            );
+        }
+
+        // Column filters
+        Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
+            if (filterValue) {
+                filtered = filtered.filter(record => {
+                    const cellValue = this.getCellValue(record, parseInt(colIndex));
+                    return cellValue.toLowerCase().includes(filterValue);
+                });
+            }
+        });
+
+        // Sorting
+        if (this.sortColumn) {
+            filtered.sort((a, b) => {
+                const aVal = this.getSortValue(a, this.sortColumn);
+                const bVal = this.getSortValue(b, this.sortColumn);
+                
+                let result = 0;
+                if (aVal < bVal) result = -1;
+                else if (aVal > bVal) result = 1;
+                
+                return this.sortDirection === 'desc' ? -result : result;
+            });
+        }
+
+        this.filteredData = filtered;
+        this.renderTable();
+        this.updateCounts();
+    }
+
+    getCellValue(record, colIndex) {
+        const values = [
+            record.live ? 'LIVE' : 'Pre',
+            record.book || '',
+            this.formatGameName(record),
+            record.display_name || record.market_type || '',
+            record.outcome_type || '',
+            record.ev ? (record.ev * 100).toFixed(2) + '%' : '',
+            record.american_odds || '',
+            record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '',
+            record.spread || '',
+            record.sport || '',
+            record.league || '',
+            record.deeplink ? 'Bet' : '',
+            'Chart',
+            this.formatTimestamp(record.last_ts)
+        ];
+        return values[colIndex] || '';
+    }
+
+    getSortValue(record, column) {
+        switch (column) {
+            case 'status': return record.live ? 1 : 0;
+            case 'book': return record.book || '';
+            case 'game': return this.formatGameName(record);
+            case 'market': return record.display_name || record.market_type || '';
+            case 'outcome_type': return record.outcome_type || '';
+            case 'ev': return record.ev || -999;
+            case 'odds': return parseInt(record.american_odds) || 0;
+            case 'prob': return record.true_prob || 0;
+            case 'spread': return parseFloat(record.spread) || 0;
+            case 'sport': return record.sport || '';
+            case 'league': return record.league || '';
+            case 'time': return this.getTimestampValue(record.last_ts);
+            default: return '';
+        }
+    }
+
+    // Helper method to convert UTC to Eastern Time and format for display
+    formatTimestamp(timestamp) {
+        if (!timestamp) return '-';
+        
+        try {
+            let date;
+            // Check if it's an ISO string or Unix timestamp
+            if (typeof timestamp === 'string' && timestamp.includes('T')) {
+                // ISO string format like "2025-07-03T00:06:05.732861"
+                date = new Date(timestamp);
+            } else if (typeof timestamp === 'number') {
+                // Unix timestamp (seconds)
+                date = new Date(timestamp * 1000);
+            } else {
+                return '-';
+            }
+            
+            if (isNaN(date.getTime())) return '-';
+            
+            // Convert to Eastern Time (EST/EDT)
+            return this.formatTimestampEST(date);
+        } catch (error) {
+            console.error('Error formatting timestamp:', error);
+            return '-';
+        }
+    }
+
+    // Helper method to format timestamp in Eastern Time
+    formatTimestampEST(date) {
+        try {
+            // Subtract 4 hours (4 * 60 * 60 * 1000 milliseconds)
+            const adjustedDate = new Date(date.getTime() - 4 * 60 * 60 * 1000);
+
+            return adjustedDate.toLocaleTimeString('en-US', {
+                timeZone: 'America/New_York',
+                hour12: true,
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        } catch (e) {
+            return 'Invalid Date';
+        }
+    }
+
+    // Helper method to get timestamp value for sorting (keep as UTC milliseconds)
+    getTimestampValue(timestamp) {
+        if (!timestamp) return 0;
+        
+        try {
+            if (typeof timestamp === 'string' && timestamp.includes('T')) {
+                // ISO string format
+                return new Date(timestamp).getTime();
+            } else if (typeof timestamp === 'number') {
+                // Unix timestamp
+                return timestamp * 1000;
+            }
+            return 0;
+        } catch (error) {
+            return 0;
+        }
+    }
+
+    renderTable() {
+        if (this.isMobileView && document.getElementById('mobileCards').style.display !== 'none') {
+            this.renderMobileCards();
+        } else {
+            this.renderDesktopTable();
+        }
+    }
+
+    // MISSING METHOD - This was causing the error
+    renderDesktopTable() {
+        const tbody = document.getElementById('tableBody');
+        
+        if (this.filteredData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="14" class="no-data">No data matches current filters</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = this.filteredData.map(record => `
+            <tr data-link="${record.deeplink || ''}" class="${record.deeplink ? 'clickable' : ''}">
+                <td>
+                    <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
+                    <span>${record.live ? 'LIVE' : 'Pre'}</span>
+                </td>
+                <td>${record.book || ''}</td>
+                <td>${this.formatGameName(record)}</td>
+                <td>${record.display_name || record.market_type || ''}</td>
+                <td>${record.outcome_type || ''}</td>
+                <td class="${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
+                    ${record.ev ? (record.ev * 100).toFixed(2) + '%' : ''}
+                </td>
+                <td>${record.american_odds || ''}</td>
+                <td class="mobile-hide">${record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : ''}</td>
+                <td class="mobile-hide">${record.spread || ''}</td>
+                <td class="mobile-hide">${record.sport || ''}</td>
+                <td class="mobile-hide">${record.league || ''}</td>
+                <td class="mobile-hide">
+                    ${record.deeplink ? `<button class="deeplink" onclick="window.open('${record.deeplink}', '_blank')">🎯</button>` : ''}
+                </td>
+                <td class="mobile-hide">
+                    <button class="chart-btn" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}')">📊</button>
+                </td>
+                <td class="mobile-hide">${this.formatTimestamp(record.last_ts)}</td>
+            </tr>
+        `).join('');
+
+        // Add click handlers for clickable rows
+        tbody.querySelectorAll('tr.clickable').forEach(row => {
+            row.addEventListener('click', (e) => {
+                // Don't trigger row click if button was clicked
+                if (e.target.tagName === 'BUTTON') return;
+                
+                const link = row.dataset.link;
+                if (link) {
+                    window.open(link, '_blank');
+                }
+            });
+        });
+    }
+
+    renderMobileCards() {
+        const container = document.getElementById('mobileCards');
+        
+        if (this.filteredData.length === 0) {
+            container.innerHTML = '<div class="no-data-card">No data matches filters</div>';
+            return;
+        }
+
+        container.innerHTML = this.filteredData.map(record => `
+            <div class="betting-card ${record.deeplink ? 'clickable' : ''}" data-link="${record.deeplink || ''}">
+                <div class="card-header">
+                    <div class="card-status">
+                        <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
+                        <span class="status-text">${record.live ? 'LIVE' : 'Pre'}</span>
+                    </div>
+                    <div class="card-book">${record.book || 'Unknown'}</div>
+                </div>
+                <div class="card-game">${this.formatGameName(record)}</div>
+                <div class="card-market">${record.display_name || record.market_type || 'Unknown Market'}</div>
+                <div class="card-outcome-type">${record.outcome_type || 'Unknown Type'}</div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">EV</span>
+                        <span class="stat-value ${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
+                            ${record.ev ? (record.ev * 100).toFixed(2) + '%' : 'N/A'}
+                        </span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Odds</span>
+                        <span class="stat-value">${record.american_odds || 'N/A'}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Sport</span>
+                        <span class="stat-value">${record.sport || 'N/A'}</span>
+                    </div>
+                </div>
+                <div class="card-time">${this.formatTimestamp(record.last_ts)}</div>
+                ${record.deeplink ? '<div class="card-bet-button">🎯 Place Bet</div>' : ''}
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.betting-card.clickable').forEach(card => {
+            card.addEventListener('click', () => {
+                const link = card.dataset.link;
+                if (link) window.open(link, '_blank');
+            });
+        });
+    }
+
+    // 1. Update the formatGameName function (replace the existing one)
+formatGameName(record) {
+    // Priority: Use player names if available, otherwise use team names
+    const home = record.player_1 || record.home_team;
+    const away = record.player_2 || record.away_team;
+    
+    if (home && away) {
+        return `${home} vs ${away}`;
+    }
+    
+    // Fallback to game_name if available
+    if (record.game_name) return record.game_name;
+    
+    console.log(`⚠️ Unknown Game for outcome_id: ${record.outcome_id}`, {
+        game_name: record.game_name,
+        home_team: record.home_team,
+        away_team: record.away_team,
+        player_1: record.player_1,
+        player_2: record.player_2,
+        sport: record.sport,
+        league: record.league,
+        display_name: record.display_name,
+        market_type: record.market_type
+    });
+    
+    return 'Unknown Game';
 }
+    updateCounts() {
+        const totalRecords = this.filteredData.length;
+        const liveCount = this.filteredData.filter(d => d.live).length;
+        const prematchCount = totalRecords - liveCount;
 
-// Update chart with new data
-function updateChart(data) {
-    // Handle data format
-    let odds = {};
+        document.getElementById('totalRecords').textContent = totalRecords;
+        document.getElementById('liveCount').textContent = liveCount;
+        document.getElementById('prematchCount').textContent = prematchCount;
+    }
 
-    if (data.body && data.body.odds) {
-        // Your data format - already grouped by bookmaker
-        odds = data.body.odds;
-    } else {
-        console.error('Unexpected data format:', data);
+    showError(message) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = `<tr><td colspan="12" class="error-message">${message}</td></tr>`;
+        
+        const mobileCards = document.getElementById('mobileCards');
+        mobileCards.innerHTML = `<div class="error-card">${message}</div>`;
+    }
+
+    // 7. Update the exportToCSV function to include outcome_type
+exportToCSV() {
+    if (this.filteredData.length === 0) {
+        alert('No data to export');
         return;
     }
-    
-    const bookmakers = Object.keys(odds);
-    
-    // Clear existing data
-    chart.data.labels = [];
-    chart.data.datasets = [];
-    
-    // Colors for different bookmakers
-    const colors = [
-        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
-        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+
+    const headers = [
+        'Status', 'Book', 'Game', 'Market', 'Outcome Type', 'EV %', 'Odds', 
+        'True Prob', 'Spread', 'Sport', 'League', 'Updated (EST)'
     ];
-    
-    let allTimePoints = new Set();
-    let totalOriginalPoints = 0;
-    
-    // Filter data by interval for each bookmaker
-    const filteredOdds = {};
-    bookmakers.forEach(bookmaker => {
-        const originalData = odds[bookmaker];
-        totalOriginalPoints = Math.max(totalOriginalPoints, originalData.length);
-        
-        filteredOdds[bookmaker] = filterDataByInterval(originalData, dataInterval);
-        filteredOdds[bookmaker].forEach(entry => {
-            allTimePoints.add(entry[0]);
-        });
-    });
-    
-    // Sort timestamps
-    const sortedTimePoints = Array.from(allTimePoints).sort();
-    
-    // Update data info
-    const dataInfoEl = document.getElementById('dataInfo');
-    dataInfoEl.innerHTML = `
-        <strong>Data Points:</strong> Showing ${sortedTimePoints.length} out of ${totalOriginalPoints} total points 
-        (every ${dataInterval === 1 ? '' : dataInterval + getOrdinalSuffix(dataInterval) + ' '}point${dataInterval === 1 ? '' : ', plus first and last'})
-    `;
-    
-    // Create labels (formatted time)
-    chart.data.labels = sortedTimePoints.map(timestamp => {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString();
-    });
-    
-    // Create datasets for each bookmaker
-    bookmakers.forEach((bookmaker, index) => {
-        const bookmakerData = filteredOdds[bookmaker];
-        
-        // Create data array aligned with time points
-        const dataPoints = sortedTimePoints.map(timestamp => {
-            const entry = bookmakerData.find(item => item[0] === timestamp);
-            return entry ? entry[2] : null; // American odds (index 2)
-        });
-        
-        chart.data.datasets.push({
-            label: bookmaker,
-            data: dataPoints,
-            borderColor: colors[index % colors.length],
-            backgroundColor: colors[index % colors.length] + '20',
-            fill: false,
-            tension: 0.1,
-            pointRadius: dataInterval === 1 ? 1 : 2,
-            pointHoverRadius: dataInterval === 1 ? 3 : 4,
-            borderWidth: 2,
-            spanGaps: true
-        });
-    });
-    
-    chart.update();
-    
-    // Update fair odds display
-    updateFairOddsDisplay(odds, sortedTimePoints);
+
+    const csvContent = [
+        headers.join(','),
+        ...this.filteredData.map(record => [
+            record.live ? 'LIVE' : 'Pre',
+            record.book || '',
+            this.formatGameName(record).replace(/,/g, ';'),
+            (record.display_name || record.market_type || '').replace(/,/g, ';'),
+            record.outcome_type || '',
+            record.ev ? (record.ev * 100).toFixed(2) + '%' : '',
+            record.american_odds || '',
+            record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '',
+            record.spread || '',
+            record.sport || '',
+            record.league || '',
+            this.formatTimestamp(record.last_ts)
+        ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `betting_data_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
 }
 
-// Helper function to get ordinal suffix
-function getOrdinalSuffix(num) {
-    const lastDigit = num % 10;
-    const lastTwoDigits = num % 100;
-    
-    if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
-        return 'th';
-    }
-    
-    switch (lastDigit) {
-        case 1: return 'st';
-        case 2: return 'nd';
-        case 3: return 'rd';
-        default: return 'th';
-    }
-}
-
-// Update fair odds display
-function updateFairOddsDisplay(odds, timePoints) {
-    if (timePoints.length === 0) return;
-    
-    const latestTime = timePoints[timePoints.length - 1];
-    const oddsAtLatestTime = [];
-    
-    Object.keys(odds).forEach(bookmaker => {
-        const entry = odds[bookmaker].find(item => item[0] === latestTime);
-        if (entry && entry[2] !== null && entry[2] !== undefined) {
-            oddsAtLatestTime.push(entry[2]);
+    handleVisibilityChange() {
+        if (document.hidden) {
+            this.stopAutoRefresh();
+            this.updateStatus('Paused (hidden)', 'paused');
+        } else if (this.autoRefreshEnabled) {
+            this.startAutoRefresh();
+            this.updateStatus('Resumed', 'success');
+            this.fetchData();
         }
+    }
+
+    destroy() {
+        this.stopAutoRefresh();
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+    }
+}
+
+// 初始化
+let dashboard;
+document.addEventListener('DOMContentLoaded', () => {
+    dashboard = new BettingDataScraper();
+    
+    document.addEventListener('visibilitychange', () => {
+        dashboard.handleVisibilityChange();
     });
-    
-    if (oddsAtLatestTime.length > 0) {
-        const fairOdds = Math.round(oddsAtLatestTime.reduce((a, b) => a + b, 0) / oddsAtLatestTime.length);
-        document.getElementById('fairOddsValue').textContent = fairOdds;
-    } else {
-        document.getElementById('fairOddsValue').textContent = 'N/A';
-    }
-}
 
-// Update summary statistics
-function updateSummary(data) {
-    const summaryEl = document.getElementById('summary');
+    // 导出按钮
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = '📊 Export';
+    exportBtn.className = 'filter-input';
+    exportBtn.style.background = '#2ecc71';
+    exportBtn.style.color = 'white';
+    exportBtn.style.border = 'none';
+    exportBtn.style.cursor = 'pointer';
+    exportBtn.onclick = () => dashboard.exportToCSV();
     
-    // Handle different data formats
-    let odds = {};
-    
-    if (data.body && data.body.odds) {
-        odds = data.body.odds;
-    } else if (Array.isArray(data.body)) {
-        const groupedOdds = {};
-        data.body.forEach(item => {
-            const bookmaker = item.sportsbook || item.book || 'Unknown';
-            if (!groupedOdds[bookmaker]) {
-                groupedOdds[bookmaker] = [];
-            }
-            groupedOdds[bookmaker].push([
-                item.timestamp,
-                item.decimal_odds || americanOddsToDecimal(item.american_odds),
-                parseInt(item.american_odds) || 0
-            ]);
-        });
-        odds = groupedOdds;
-    } else if (Array.isArray(data)) {
-        const groupedOdds = {};
-        data.forEach(item => {
-            const bookmaker = item.sportsbook || item.book || 'Unknown';
-            if (!groupedOdds[bookmaker]) {
-                groupedOdds[bookmaker] = [];
-            }
-            groupedOdds[bookmaker].push([
-                item.timestamp,
-                item.decimal_odds || americanOddsToDecimal(item.american_odds),
-                parseInt(item.american_odds) || 0
-            ]);
-        });
-        odds = groupedOdds;
-    }
-    
-    if (!odds || Object.keys(odds).length === 0) {
-        summaryEl.innerHTML = '<p>No data available</p>';
-        return;
-    }
-    
-    const bookmakers = Object.keys(odds);
-    
-    let summaryHTML = '';
-    let fairLineStarting = 0;
-    let fairLineCurrent = 0;
-    let validBookmakers = 0;
-    
-    bookmakers.forEach(bookmaker => {
-        const bookmakerData = odds[bookmaker];
-        
-        if (bookmakerData.length === 0) return;
-        
-        const startingOdds = bookmakerData[0][2];
-        const currentOdds = bookmakerData[bookmakerData.length - 1][2];
-        const change = currentOdds - startingOdds;
-        
-        // Add to fair line calculation
-        fairLineStarting += startingOdds;
-        fairLineCurrent += currentOdds;
-        validBookmakers++;
-        
-        let changeClass = 'odds-neutral';
-        let changeText = 'No change';
-        
-        if (change > 0) {
-            changeClass = 'odds-up';
-            changeText = `+${change}`;
-        } else if (change < 0) {
-            changeClass = 'odds-down';
-            changeText = `${change}`;
+    const controls = document.querySelector('.controls');
+    const exportGroup = document.createElement('div');
+    exportGroup.className = 'filter-group';
+    exportGroup.appendChild(exportBtn);
+    controls.appendChild(exportGroup);
+
+    // 手动刷新按钮
+    const refreshBtn = document.createElement('button');
+    refreshBtn.textContent = '🔄 Refresh';
+    refreshBtn.className = 'filter-input';
+    refreshBtn.style.background = '#3498db';
+    refreshBtn.style.color = 'white';
+    refreshBtn.style.border = 'none';
+    refreshBtn.style.cursor = 'pointer';
+    refreshBtn.onclick = () => {
+        if (!dashboard.isLoading) {
+            dashboard.fetchData();
         }
-        
-        summaryHTML += `
-            <div class="summary-card">
-                <h3>${bookmaker}</h3>
-                <p><strong>Starting Odds:</strong> ${startingOdds}</p>
-                <p><strong>Current Odds:</strong> ${currentOdds} 
-                   <span class="odds-change ${changeClass}">${changeText}</span></p>
-                <p><strong>Total Data Points:</strong> ${bookmakerData.length}</p>
-            </div>
-        `;
+    };
+    
+    const refreshGroup = document.createElement('div');
+    refreshGroup.className = 'filter-group';
+    refreshGroup.appendChild(refreshBtn);
+    controls.appendChild(refreshGroup);
+
+    window.addEventListener('beforeunload', () => {
+        dashboard.destroy();
     });
-    
-    // Add fair line summary
-    if (validBookmakers > 0) {
-        const fairStarting = Math.round(fairLineStarting / validBookmakers);
-        const fairCurrent = Math.round(fairLineCurrent / validBookmakers);
-        const fairChange = fairCurrent - fairStarting;
-        
-        let fairChangeClass = 'odds-neutral';
-        let fairChangeText = 'No change';
-        
-        if (fairChange > 0) {
-            fairChangeClass = 'odds-up';
-            fairChangeText = `+${fairChange}`;
-        } else if (fairChange < 0) {
-            fairChangeClass = 'odds-down';
-            fairChangeText = `${fairChange}`;
+});
+
+// Deeplink处理
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('deeplink')) {
+        const row = e.target.closest('tr');
+        const link = row.dataset.link;
+        if (link) {
+            window.open(link, '_blank');
         }
-        
-        summaryHTML += `
-            <div class="summary-card" style="border-left: 3px solid #FF8C00;">
-                <h3>Fair Line (Average)</h3>
-                <p><strong>Starting Odds:</strong> ${fairStarting}</p>
-                <p><strong>Current Odds:</strong> ${fairCurrent} 
-                   <span class="odds-change ${fairChangeClass}">${fairChangeText}</span></p>
-                <p><strong>Based on:</strong> ${validBookmakers} bookmakers</p>
-            </div>
-        `;
-    }
-    
-    summaryEl.innerHTML = summaryHTML;
-}
-
-// Clear cache
-function clearCache() {
-    oddsCache = {};
-    if (chart) {
-        chart.data.labels = [];
-        chart.data.datasets = [];
-        chart.update();
-    }
-    document.getElementById('summary').innerHTML = '';
-    document.getElementById('status').textContent = 'Cache cleared';
-    document.getElementById('dataInfo').innerHTML = '<strong>Data Points:</strong> No data loaded.';
-    document.getElementById('fairOddsValue').textContent = 'N/A';
-}
-
-// Helper function to convert American odds to decimal
-function americanOddsToDecimal(americanOdds) {
-    if (americanOdds === 0) return 'N/A';
-    if (americanOdds > 0) {
-        return (americanOdds / 100 + 1).toFixed(2);
-    } else {
-        return (100 / Math.abs(americanOdds) + 1).toFixed(2);
-    }
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    initChart();
-    
-    if (!apiUrl) {
-        document.getElementById('status').textContent = 'No API URL provided';
-        document.getElementById('loadingDiv').style.display = 'none';
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('error').textContent = 'No API URL provided. Please check the link and try again.';
-    } else {
-        fetchAndDisplayData();
     }
 });
