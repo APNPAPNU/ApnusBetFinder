@@ -364,7 +364,7 @@ class BettingDataScraper {
     }
 
     async fetchAWSData() {
-        const sports = ["basketball", "baseball", "football", "soccer", "hockey","tennis"];
+        const sports = ["basketball", "baseball", "football", "soccer", "hockey","tennis","boxing","mma","golf"];
         let allData = {};
 
         for (const sport of sports) {
