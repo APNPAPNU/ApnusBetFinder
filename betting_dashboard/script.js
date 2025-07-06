@@ -130,15 +130,16 @@ class BettingDataScraper {
     }
 
     startAutoRefresh() {
-    this.stopAutoRefresh();
-    if (this.autoRefreshEnabled && !this.isLoading) {
-        this.refreshInterval = setInterval(() => {
-            if (!this.isLoading) {
-                this.fetchData();
-            }
-        }, this.refreshIntervalTime);
+        this.stopAutoRefresh();
+        if (this.autoRefreshEnabled && !this.isLoading) {
+            this.refreshInterval = setInterval(() => {
+                if (!this.isLoading) {
+                    this.fetchData();
+                }
+            }, this.refreshIntervalTime);
+        }
     }
-}
+
     stopAutoRefresh() {
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
@@ -155,41 +156,60 @@ class BettingDataScraper {
     }
 
     async fetchData() {
-    if (this.isLoading) return;
-    
-    this.isLoading = true;
-    this.updateStatus('Fetching data...', 'loading');
-    
-    // Stop auto refresh while loading
-    this.stopAutoRefresh();
-
-    try {
-        const [openoddsData, cloudfrontData, awsData] = await Promise.all([
-            this.fetchOpenOddsData(),
-            this.fetchCloudfrontData(),
-            this.fetchAWSData()
-        ]);
-
-        this.data = await this.processData(openoddsData, cloudfrontData, awsData);
-        this.updateFilterOptions();
-        this.applyFilters();
+        if (this.isLoading) return;
         
-        this.updateStatus(`Data updated`, 'success');
-        document.getElementById('lastUpdate').textContent = `Last: ${this.formatTimestampEST(new Date())}`;
+        this.isLoading = true;
+        this.updateStatus('Fetching data...', 'loading');
         
-    } catch (error) {
-        console.error('获取数据错误:', error);
-        this.updateStatus('Error fetching data', 'error');
-        this.showError('Failed to fetch betting data.');
+        // Stop auto refresh while loading
+        this.stopAutoRefresh();
+
+        try {
+            const [openoddsData, cloudfrontData, awsData] = await Promise.all([
+                this.fetchOpenOddsData(),
+                this.fetchCloudfrontData(),
+                this.fetchAWSData()
+            ]);
+
+            this.data = await this.processData(openoddsData, cloudfrontData, awsData);
+            this.updateFilterOptions();
+            this.applyFilters();
+            
+            this.updateStatus(`Data updated`, 'success');
+            document.getElementById('lastUpdate').textContent = `Last: ${this.formatTimestampEST(new Date())}`;
+            
+        } catch (error) {
+            console.error('获取数据错误:', error);
+            this.updateStatus('Error fetching data', 'error');
+            this.showError('Failed to fetch betting data.');
+        }
+        
+        this.isLoading = false;
+        
+        // Restart auto refresh only after everything is complete
+        if (this.autoRefreshEnabled) {
+            this.startAutoRefresh();
+        }
     }
-    
-    this.isLoading = false;
-    
-    // Restart auto refresh only after everything is complete
-    if (this.autoRefreshEnabled) {
-        this.startAutoRefresh();
+
+    openHistoricalChart(outcomeId, isLive, spread) {
+        // Clean the outcome_id - remove _ALT suffix (case insensitive)
+        const cleanOutcomeId = outcomeId.replace(/_alt$/i, '');
+        
+        // Get current timestamp
+        const currentTimestamp = Date.now();
+        
+        // Build the URL
+        let url = `https://49pzwry2rc.execute-api.us-east-1.amazonaws.com/prod/getHistoricalOdds?outcome_id=${cleanOutcomeId}&live=${isLive}&from=${currentTimestamp}`;
+        
+        console.log('Opening historical chart with URL:', url);
+        
+        // Create the template page URL with encoded parameters
+        const templateUrl = `chart-template.html?api_url=${encodeURIComponent(url)}`;
+        
+        // Open in new window
+        window.open(templateUrl, '_blank');
     }
-}
 
     async fetchOpenOddsData() {
         const livePayload = {
@@ -274,7 +294,7 @@ class BettingDataScraper {
                     const games = data.body || data;
                     Object.assign(allData, games);
                 }
-                            } catch (error) {
+            } catch (error) {
                 console.error(`AWS ${sport}数据错误:`, error);
             }
         }
@@ -283,151 +303,86 @@ class BettingDataScraper {
     }
 
     async processData(openoddsData, cloudfrontData, awsData) {
-    const processed = [];
-    const gameInfoCache = new Map(); // Cache game info lookups
+        const processed = [];
+        const gameInfoCache = new Map(); // Cache game info lookups
 
-    for (const item of openoddsData) {
-        if (item.channel && item.channel.includes("ev_stream") && item.payload) {
-            for (const payloadItem of item.payload) {
-                try {
-                    const record = {
-                        live: item._is_live || false,
-                        outcome_id: payloadItem.outcome_id,
-                        book: payloadItem.book,
-                        spread: payloadItem.spread,
-                        message: payloadItem.message,
-                        ev: payloadItem.ev_model?.ev,
-                        last_ts: payloadItem.ev_model?.last_ts,
-                        american_odds: payloadItem.ev_model?.american_odds,
-                        true_prob: payloadItem.ev_model?.true_prob,
-                        deeplink: payloadItem.ev_model?.deeplink,
-                        ev_spread: payloadItem.ev_model?.spread
-                    };
+        for (const item of openoddsData) {
+            if (item.channel && item.channel.includes("ev_stream") && item.payload) {
+                for (const payloadItem of item.payload) {
+                    try {
+                        const record = {
+                            live: item._is_live || false,
+                            outcome_id: payloadItem.outcome_id,
+                            book: payloadItem.book,
+                            spread: payloadItem.spread,
+                            message: payloadItem.message,
+                            ev: payloadItem.ev_model?.ev,
+                            last_ts: payloadItem.ev_model?.last_ts,
+                            american_odds: payloadItem.ev_model?.american_odds,
+                            true_prob: payloadItem.ev_model?.true_prob,
+                            deeplink: payloadItem.ev_model?.deeplink,
+                            ev_spread: payloadItem.ev_model?.spread
+                        };
 
-                    // Use cached game info if available
-                    let gameInfo;
-                    if (gameInfoCache.has(record.outcome_id)) {
-                        gameInfo = gameInfoCache.get(record.outcome_id);
-                    } else {
-                        gameInfo = this.findGameInfo(record.outcome_id, cloudfrontData, awsData);
-                        gameInfoCache.set(record.outcome_id, gameInfo);
+                        // Use cached game info if available
+                        let gameInfo;
+                        if (gameInfoCache.has(record.outcome_id)) {
+                            gameInfo = gameInfoCache.get(record.outcome_id);
+                        } else {
+                            gameInfo = this.findGameInfo(record.outcome_id, cloudfrontData, awsData);
+                            gameInfoCache.set(record.outcome_id, gameInfo);
+                        }
+                        
+                        Object.assign(record, gameInfo);
+
+                        if (record.outcome_id && !record._needsAdditionalLookup) {
+                            processed.push(record);
+                        }
+                    } catch (error) {
+                        console.error('Processing record error:', error);
                     }
-                    
-                    Object.assign(record, gameInfo);
-
-                    if (record.outcome_id && !record._needsAdditionalLookup) {
-                        processed.push(record);
-                    }
-                } catch (error) {
-                    console.error('Processing record error:', error);
                 }
             }
         }
-    }
 
-    return processed;
-}
+        return processed;
+    }
 
     findGameInfo(outcomeId, cloudfrontData, awsData) {
-    const info = {};
-    
-    // console.log(`🔍 Looking for outcome_id: ${outcomeId} in cloudfrontData`);
-    
-    for (const game of cloudfrontData) {
-        if (game.markets) {
-            for (const [marketId, market] of Object.entries(game.markets)) {
-                if (market.outcomes) {
-                    for (const outcome of Object.values(market.outcomes)) {
-    // Strip _ALT suffix for matching
-    const cleanOutcomeId = outcome.outcome_id.replace(/_ALT$/, '');
-    const cleanSearchId = outcomeId.replace(/_ALT$/, '');
-    
-  if (outcome.outcome_id === outcomeId || cleanOutcomeId === cleanSearchId) {
-    // console.log(`✅ Found match in cloudfrontData for ${outcomeId}:`, {
-    //     original_outcome_id: outcome.outcome_id,
-    //     searched_outcome_id: outcomeId,
-    //     game_name: game.game_name,
-    //     market_display_name: market.display_name,
-    //     outcome_display_name: outcome.display_name
-    // });
+        const info = {};
         
-                            info.market_id = marketId;
-                            info.market_type = market.market_type;
-                            info.display_name = market.display_name;
-                            info.game_name = game.game_name;
-                            info.home_team = game.home_team;
-                            info.away_team = game.away_team;
-                            info.sport = game.sport;
-                            info.league = game.league;
-                            info.player_1 = game.player_1;
-                            info.player_2 = game.player_2;
-                            
-                            if (info.market_id && awsData) {
-                                for (const [gameId, awsGame] of Object.entries(awsData)) {
-                                    if (awsGame.markets && awsGame.markets[info.market_id]) {
-                                        info.aws_game_date = awsGame.game_date;
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            return info;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    console.log(`❌ No match found in cloudfrontData for outcome_id: ${outcomeId}`);
-    
-    // If not found, mark for additional lookup
-    info._needsAdditionalLookup = true;
-    info.outcome_id = outcomeId;
-    return info;
-}
-async findGameInfoFromCloudfront(outcomeId) {
-    try {
-        console.log(`🔍 Making additional CloudFront call for outcome_id: ${outcomeId}`);
-        
-        const response = await fetch('https://d6ailk8q6o27n.cloudfront.net/livegames');
-        if (!response.ok) {
-            console.log(`❌ CloudFront API call failed with status: ${response.status}`);
-            return {};
-        }
-        
-        const data = await response.json();
-        const allGames = [];
-        
-        if (data.body) {
-            if (data.body.prematch_games) allGames.push(...data.body.prematch_games);
-            if (data.body.live_games) allGames.push(...data.body.live_games);
-        }
-        
-        console.log(`📊 Checking ${allGames.length} games from additional CloudFront call`);
-        
-        for (const game of allGames) {
+        for (const game of cloudfrontData) {
             if (game.markets) {
                 for (const [marketId, market] of Object.entries(game.markets)) {
                     if (market.outcomes) {
                         for (const outcome of Object.values(market.outcomes)) {
-    if (outcome.outcome_id === outcomeId) {
-        console.log(`✅ Found match in additional CloudFront call for ${outcomeId}:`, {
-            // ... existing logging
-        });
+                            // Strip _ALT suffix for matching
+                            const cleanOutcomeId = outcome.outcome_id.replace(/_ALT$/, '');
+                            const cleanSearchId = outcomeId.replace(/_ALT$/, '');
+                            
+                            if (outcome.outcome_id === outcomeId || cleanOutcomeId === cleanSearchId) {
+                                info.market_id = marketId;
+                                info.market_type = market.market_type;
+                                info.display_name = market.display_name;
+                                info.game_name = game.game_name;
+                                info.home_team = game.home_team;
+                                info.away_team = game.away_team;
+                                info.sport = game.sport;
+                                info.league = game.league;
+                                info.player_1 = game.player_1;
+                                info.player_2 = game.player_2;
+                                info.outcome_type = outcome.outcome_type;
                                 
-                                return {
-                                    market_id: marketId,
-                                    market_type: market.market_type,
-                                    display_name: market.display_name,
-                                    game_name: game.game_name,
-                                    home_team: game.home_team,
-                                    away_team: game.away_team,
-                                    sport: game.sport,
-                                    league: game.league,
-                                    player_1: game.player_1,
-                                    player_2: game.player_2
-                                };
+                                if (info.market_id && awsData) {
+                                    for (const [gameId, awsGame] of Object.entries(awsData)) {
+                                        if (awsGame.markets && awsGame.markets[info.market_id]) {
+                                            info.aws_game_date = awsGame.game_date;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                return info;
                             }
                         }
                     }
@@ -435,13 +390,70 @@ async findGameInfoFromCloudfront(outcomeId) {
             }
         }
         
-        console.log(`❌ Still no match found in additional CloudFront call for outcome_id: ${outcomeId}`);
-        return {};
-    } catch (error) {
-        console.error('Error fetching additional game info:', error);
-        return {};
+        console.log(`❌ No match found in cloudfrontData for outcome_id: ${outcomeId}`);
+        
+        // If not found, mark for additional lookup
+        info._needsAdditionalLookup = true;
+        info.outcome_id = outcomeId;
+        return info;
     }
-}
+
+    async findGameInfoFromCloudfront(outcomeId) {
+        try {
+            console.log(`🔍 Making additional CloudFront call for outcome_id: ${outcomeId}`);
+            
+            const response = await fetch('https://d6ailk8q6o27n.cloudfront.net/livegames');
+            if (!response.ok) {
+                console.log(`❌ CloudFront API call failed with status: ${response.status}`);
+                return {};
+            }
+            
+            const data = await response.json();
+            const allGames = [];
+            
+            if (data.body) {
+                if (data.body.prematch_games) allGames.push(...data.body.prematch_games);
+                if (data.body.live_games) allGames.push(...data.body.live_games);
+            }
+            
+            console.log(`📊 Checking ${allGames.length} games from additional CloudFront call`);
+            
+            for (const game of allGames) {
+                if (game.markets) {
+                    for (const [marketId, market] of Object.entries(game.markets)) {
+                        if (market.outcomes) {
+                            for (const outcome of Object.values(market.outcomes)) {
+                                if (outcome.outcome_id === outcomeId) {
+                                    console.log(`✅ Found match in additional CloudFront call for ${outcomeId}`);
+                                    
+                                    return {
+                                        market_id: marketId,
+                                        market_type: market.market_type,
+                                        display_name: market.display_name,
+                                        game_name: game.game_name,
+                                        home_team: game.home_team,
+                                        away_team: game.away_team,
+                                        sport: game.sport,
+                                        league: game.league,
+                                        player_1: game.player_1,
+                                        player_2: game.player_2,
+                                        outcome_type: outcome.outcome_type
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            console.log(`❌ Still no match found in additional CloudFront call for outcome_id: ${outcomeId}`);
+            return {};
+        } catch (error) {
+            console.error('Error fetching additional game info:', error);
+            return {};
+        }
+    }
+
     updateFilterOptions() {
         const books = [...new Set(this.data.map(d => d.book).filter(Boolean))].sort();
         this.updateSelectOptions('bookFilter', books);
@@ -467,43 +479,43 @@ async findGameInfoFromCloudfront(outcomeId) {
     }
 
     applyFilters() {
-    let filtered = this.data;
+        let filtered = this.data;
 
-    // Chain filters for better performance
-    const bookFilter = document.getElementById('bookFilter').value;
-    const sportFilter = document.getElementById('sportFilter').value;
-    const evFilterInput = document.getElementById('evFilter').value;
-    const liveFilter = document.getElementById('liveFilter').value;
-    const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
-    
-    if (bookFilter) {
-        filtered = filtered.filter(d => d.book === bookFilter);
-    }
+        // Chain filters for better performance
+        const bookFilter = document.getElementById('bookFilter').value;
+        const sportFilter = document.getElementById('sportFilter').value;
+        const evFilterInput = document.getElementById('evFilter').value;
+        const liveFilter = document.getElementById('liveFilter').value;
+        const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+        
+        if (bookFilter) {
+            filtered = filtered.filter(d => d.book === bookFilter);
+        }
 
-    if (sportFilter) {
-        filtered = filtered.filter(d => d.sport === sportFilter);
-    }
+        if (sportFilter) {
+            filtered = filtered.filter(d => d.sport === sportFilter);
+        }
 
-    if (evFilterInput !== '' && !isNaN(evFilterInput)) {
-        const evThreshold = parseFloat(evFilterInput) / 100;
-        filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
-    }
+        if (evFilterInput !== '' && !isNaN(evFilterInput)) {
+            const evThreshold = parseFloat(evFilterInput) / 100;
+            filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
+        }
 
-    if (liveFilter !== '') {
-        const isLive = liveFilter === 'true';
-        filtered = filtered.filter(d => d.live === isLive);
-    }
+        if (liveFilter !== '') {
+            const isLive = liveFilter === 'true';
+            filtered = filtered.filter(d => d.live === isLive);
+        }
 
-    if (searchFilter) {
-        filtered = filtered.filter(d => 
-            (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
-            (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
-            (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
-            (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
-            (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
-            (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
-        );
-    }
+        if (searchFilter) {
+            filtered = filtered.filter(d => 
+                (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
+                (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
+                (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
+                (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
+                (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
+                (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
+            );
+        }
 
         // Column filters
         Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
@@ -540,6 +552,7 @@ async findGameInfoFromCloudfront(outcomeId) {
             record.book || '',
             this.formatGameName(record),
             record.display_name || record.market_type || '',
+            record.outcome_type || '',
             record.ev ? (record.ev * 100).toFixed(2) + '%' : '',
             record.american_odds || '',
             record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '',
@@ -547,7 +560,8 @@ async findGameInfoFromCloudfront(outcomeId) {
             record.sport || '',
             record.league || '',
             record.deeplink ? 'Bet' : '',
-            this.formatTimestamp(record.last_ts) // Using EST formatting
+            'Chart',
+            this.formatTimestamp(record.last_ts)
         ];
         return values[colIndex] || '';
     }
@@ -558,6 +572,7 @@ async findGameInfoFromCloudfront(outcomeId) {
             case 'book': return record.book || '';
             case 'game': return this.formatGameName(record);
             case 'market': return record.display_name || record.market_type || '';
+            case 'outcome_type': return record.outcome_type || '';
             case 'ev': return record.ev || -999;
             case 'odds': return parseInt(record.american_odds) || 0;
             case 'prob': return record.true_prob || 0;
@@ -597,22 +612,22 @@ async findGameInfoFromCloudfront(outcomeId) {
     }
 
     // Helper method to format timestamp in Eastern Time
-  formatTimestampEST(date) {
-    try {
-        // Subtract 4 hours (4 * 60 * 60 * 1000 milliseconds)
-        const adjustedDate = new Date(date.getTime() - 4 * 60 * 60 * 1000);
+    formatTimestampEST(date) {
+        try {
+            // Subtract 4 hours (4 * 60 * 60 * 1000 milliseconds)
+            const adjustedDate = new Date(date.getTime() - 4 * 60 * 60 * 1000);
 
-        return adjustedDate.toLocaleTimeString('en-US', {
-            timeZone: 'America/New_York',
-            hour12: true,
-            hour: 'numeric',
-            minute: '2-digit',
-            second: '2-digit'
-        });
-    } catch (e) {
-        return 'Invalid Date';
+            return adjustedDate.toLocaleTimeString('en-US', {
+                timeZone: 'America/New_York',
+                hour12: true,
+                hour: 'numeric',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        } catch (e) {
+            return 'Invalid Date';
+        }
     }
-}
 
     // Helper method to get timestamp value for sorting (keep as UTC milliseconds)
     getTimestampValue(timestamp) {
@@ -640,69 +655,57 @@ async findGameInfoFromCloudfront(outcomeId) {
         }
     }
 
-   renderDesktopTable() {
-    const tbody = document.getElementById('tableBody');
-    
-    if (this.filteredData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" class="no-data">No data matches filters</td></tr>';
-        return;
-    }
-
-    // Only rebuild if data actually changed
-    if (this.lastRenderedData && JSON.stringify(this.lastRenderedData) === JSON.stringify(this.filteredData)) {
-        return;
-    }
-
-    // Use DocumentFragment for better performance
-    const fragment = document.createDocumentFragment();
-    
-    this.filteredData.forEach(record => {
-        const row = document.createElement('tr');
-        if (record.deeplink) {
-            row.className = 'clickable';
-            row.dataset.link = record.deeplink;
+    // MISSING METHOD - This was causing the error
+    renderDesktopTable() {
+        const tbody = document.getElementById('tableBody');
+        
+        if (this.filteredData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="14" class="no-data">No data matches current filters</td></tr>';
+            return;
         }
-        
-        row.innerHTML = `
-            <td>
-                <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
-                ${record.live ? 'LIVE' : 'Pre'}
-            </td>
-            <td>${record.book || '-'}</td>
-            <td>${this.formatGameName(record)}</td>
-            <td>${record.display_name || record.market_type || '-'}</td>
-            <td class="${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
-                ${record.ev ? (record.ev * 100).toFixed(2) + '%' : '-'}
-            </td>
-            <td>${record.american_odds || '-'}</td>
-            <td>${record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '-'}</td>
-            <td>${record.spread || '-'}</td>
-            <td>${record.sport || '-'}</td>
-            <td>${record.league || '-'}</td>
-            <td>
-                ${record.deeplink ? `<span class="deeplink" onclick="event.stopPropagation();">Bet</span>` : '-'}
-            </td>
-            <td>${this.formatTimestamp(record.last_ts)}</td>
-        `;
-        
-        fragment.appendChild(row);
-    });
-    
-    // Single DOM update
-    tbody.innerHTML = '';
-    tbody.appendChild(fragment);
 
-    // Cache the rendered data
-    this.lastRenderedData = [...this.filteredData];
+        tbody.innerHTML = this.filteredData.map(record => `
+            <tr data-link="${record.deeplink || ''}" class="${record.deeplink ? 'clickable' : ''}">
+                <td>
+                    <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
+                    <span>${record.live ? 'LIVE' : 'Pre'}</span>
+                </td>
+                <td>${record.book || ''}</td>
+                <td>${this.formatGameName(record)}</td>
+                <td>${record.display_name || record.market_type || ''}</td>
+                <td>${record.outcome_type || ''}</td>
+                <td class="${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
+                    ${record.ev ? (record.ev * 100).toFixed(2) + '%' : ''}
+                </td>
+                <td>${record.american_odds || ''}</td>
+                <td class="mobile-hide">${record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : ''}</td>
+                <td class="mobile-hide">${record.spread || ''}</td>
+                <td class="mobile-hide">${record.sport || ''}</td>
+                <td class="mobile-hide">${record.league || ''}</td>
+                <td class="mobile-hide">
+                    ${record.deeplink ? `<button class="deeplink" onclick="window.open('${record.deeplink}', '_blank')">🎯</button>` : ''}
+                </td>
+                <td class="mobile-hide">
+                    <button class="chart-btn" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}')">📊</button>
+                </td>
+                <td class="mobile-hide">${this.formatTimestamp(record.last_ts)}</td>
+            </tr>
+        `).join('');
 
-    // Add click handlers only to clickable rows
-    tbody.querySelectorAll('tr.clickable').forEach(row => {
-        row.addEventListener('click', (e) => {
-            const link = row.dataset.link;
-            if (link) window.open(link, '_blank');
+        // Add click handlers for clickable rows
+        tbody.querySelectorAll('tr.clickable').forEach(row => {
+            row.addEventListener('click', (e) => {
+                // Don't trigger row click if button was clicked
+                if (e.target.tagName === 'BUTTON') return;
+                
+                const link = row.dataset.link;
+                if (link) {
+                    window.open(link, '_blank');
+                }
+            });
         });
-    });
-}
+    }
+
     renderMobileCards() {
         const container = document.getElementById('mobileCards');
         
@@ -722,6 +725,7 @@ async findGameInfoFromCloudfront(outcomeId) {
                 </div>
                 <div class="card-game">${this.formatGameName(record)}</div>
                 <div class="card-market">${record.display_name || record.market_type || 'Unknown Market'}</div>
+                <div class="card-outcome-type">${record.outcome_type || 'Unknown Type'}</div>
                 <div class="card-stats">
                     <div class="stat-item">
                         <span class="stat-label">EV</span>
@@ -751,10 +755,18 @@ async findGameInfoFromCloudfront(outcomeId) {
         });
     }
 
-    formatGameName(record) {
+    // 1. Update the formatGameName function (replace the existing one)
+formatGameName(record) {
+    // Priority: Use player names if available, otherwise use team names
+    const home = record.player_1 || record.home_team;
+    const away = record.player_2 || record.away_team;
+    
+    if (home && away) {
+        return `${home} vs ${away}`;
+    }
+    
+    // Fallback to game_name if available
     if (record.game_name) return record.game_name;
-    if (record.home_team && record.away_team) return `${record.away_team} @ ${record.home_team}`;
-    if (record.player_1 && record.player_2) return `${record.player_1} vs ${record.player_2}`;
     
     console.log(`⚠️ Unknown Game for outcome_id: ${record.outcome_id}`, {
         game_name: record.game_name,
@@ -788,42 +800,44 @@ async findGameInfoFromCloudfront(outcomeId) {
         mobileCards.innerHTML = `<div class="error-card">${message}</div>`;
     }
 
-    exportToCSV() {
-        if (this.filteredData.length === 0) {
-            alert('No data to export');
-            return;
-        }
-
-        const headers = [
-            'Status', 'Book', 'Game', 'Market', 'EV %', 'Odds', 
-            'True Prob', 'Spread', 'Sport', 'League', 'Updated (EST)'
-        ];
-
-        const csvContent = [
-            headers.join(','),
-            ...this.filteredData.map(record => [
-                record.live ? 'LIVE' : 'Pre',
-                record.book || '',
-                this.formatGameName(record).replace(/,/g, ';'),
-                (record.display_name || record.market_type || '').replace(/,/g, ';'),
-                record.ev ? (record.ev * 100).toFixed(2) + '%' : '',
-                record.american_odds || '',
-                record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '',
-                record.spread || '',
-                record.sport || '',
-                record.league || '',
-                this.formatTimestamp(record.last_ts)
-            ].join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `betting_data_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
+    // 7. Update the exportToCSV function to include outcome_type
+exportToCSV() {
+    if (this.filteredData.length === 0) {
+        alert('No data to export');
+        return;
     }
+
+    const headers = [
+        'Status', 'Book', 'Game', 'Market', 'Outcome Type', 'EV %', 'Odds', 
+        'True Prob', 'Spread', 'Sport', 'League', 'Updated (EST)'
+    ];
+
+    const csvContent = [
+        headers.join(','),
+        ...this.filteredData.map(record => [
+            record.live ? 'LIVE' : 'Pre',
+            record.book || '',
+            this.formatGameName(record).replace(/,/g, ';'),
+            (record.display_name || record.market_type || '').replace(/,/g, ';'),
+            record.outcome_type || '',
+            record.ev ? (record.ev * 100).toFixed(2) + '%' : '',
+            record.american_odds || '',
+            record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '',
+            record.spread || '',
+            record.sport || '',
+            record.league || '',
+            this.formatTimestamp(record.last_ts)
+        ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `betting_data_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
 
     handleVisibilityChange() {
         if (document.hidden) {
