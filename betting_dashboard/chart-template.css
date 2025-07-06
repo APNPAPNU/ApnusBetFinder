@@ -219,4 +219,62 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* Bet Details Styling - Adapted to Dark Theme */
+        .bet-details {
+            background: linear-gradient(135deg, #1a1f2e 0%, #2d3748 100%);
+            color: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid #4a5568;
+        }
+        .bet-details h2 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+            text-align: center;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .detail-item {
+            background: rgba(0, 212, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        .detail-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
+        }
+        .detail-label {
+            font-weight: bold;
+            opacity: 0.9;
+            font-size: 14px;
+            color: #a0aec0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .detail-value {
+            font-size: 18px;
+            margin-top: 8px;
+            color: #ffffff;
+            font-weight: 500;
+        }
+        .ev-positive {
+            color: #48bb78;
+            font-weight: bold;
+        }
+        .ev-negative {
+            color: #f56565;
+            font-weight: bold;
+        }
     </style>
