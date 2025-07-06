@@ -60,32 +60,97 @@ class BettingDataScraper {
     }
 
     setupMobileHandlers() {
-        // 过滤器切换
-        document.getElementById('toggleFilters').addEventListener('click', () => {
-            const controls = document.getElementById('filterControls');
-            const columnFilters = document.getElementById('columnFilters');
-            const isHidden = controls.style.display === 'none';
-            
-            controls.style.display = isHidden ? 'flex' : 'none';
-            columnFilters.style.display = isHidden ? 'block' : 'none';
+    // Add null checks to prevent errors
+    const toggleFilters = document.getElementById('toggleFilters');
+    const toggleView = document.getElementById('toggleView');
+    const filterControls = document.getElementById('filterControls');
+    const desktopTable = document.getElementById('dataTable');
+    const mobileCards = document.getElementById('mobileCards');
+    
+    // Check if all required elements exist
+    if (!toggleFilters || !toggleView || !filterControls || !desktopTable || !mobileCards) {
+        console.error('Required mobile elements not found:', {
+            toggleFilters: !!toggleFilters,
+            toggleView: !!toggleView,
+            filterControls: !!filterControls,
+            desktopTable: !!desktopTable,
+            mobileCards: !!mobileCards
         });
-
-        // 视图切换
-        document.getElementById('toggleView').addEventListener('click', () => {
-            const table = document.getElementById('dataTable');
-            const cards = document.getElementById('mobileCards');
-            const isTableVisible = table.style.display !== 'none';
-            
-            table.style.display = isTableVisible ? 'none' : 'table';
-            cards.style.display = isTableVisible ? 'block' : 'none';
-        });
-
-        // 初始移动端状态
-        if (this.isMobileView) {
-            document.getElementById('filterControls').style.display = 'none';
-            document.getElementById('columnFilters').style.display = 'none';
-        }
+        return;
     }
+    
+    // Initialize mobile view state
+    let isMobileView = window.innerWidth <= 768;
+    
+    // Toggle filters visibility
+    toggleFilters.addEventListener('click', () => {
+        const isVisible = filterControls.style.display === 'flex';
+        filterControls.style.display = isVisible ? 'none' : 'flex';
+        toggleFilters.classList.toggle('active', !isVisible);
+    });
+    
+    // Toggle between desktop and mobile view
+    toggleView.addEventListener('click', () => {
+        isMobileView = !isMobileView;
+        
+        if (isMobileView) {
+            // Show mobile view
+            desktopTable.style.display = 'none';
+            mobileCards.style.display = 'flex';
+            toggleView.textContent = '🖥️ Desktop';
+            toggleView.classList.add('active');
+        } else {
+            // Show desktop view
+            desktopTable.style.display = 'table';
+            mobileCards.style.display = 'none';
+            toggleView.textContent = '📱 Mobile';
+            toggleView.classList.remove('active');
+        }
+    });
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        const windowWidth = window.innerWidth;
+        
+        if (windowWidth <= 768) {
+            // Force mobile view on small screens
+            if (!isMobileView) {
+                isMobileView = true;
+                desktopTable.style.display = 'none';
+                mobileCards.style.display = 'flex';
+                toggleView.textContent = '🖥️ Desktop';
+                toggleView.classList.add('active');
+            }
+        } else {
+            // Auto-switch to desktop view on large screens if not manually overridden
+            if (isMobileView && windowWidth > 1024) {
+                isMobileView = false;
+                desktopTable.style.display = 'table';
+                mobileCards.style.display = 'none';
+                toggleView.textContent = '📱 Mobile';
+                toggleView.classList.remove('active');
+            }
+        }
+    });
+    
+    // Initial setup based on screen size
+    if (isMobileView) {
+        desktopTable.style.display = 'none';
+        mobileCards.style.display = 'flex';
+        toggleView.textContent = '🖥️ Desktop';
+        toggleView.classList.add('active');
+    } else {
+        desktopTable.style.display = 'table';
+        mobileCards.style.display = 'none';
+        toggleView.textContent = '📱 Mobile';
+        toggleView.classList.remove('active');
+    }
+    
+    // Initially hide filters on mobile
+    if (window.innerWidth <= 768) {
+        filterControls.style.display = 'none';
+    }
+}
 
     setupColumnFilters() {
         const columnInputs = document.querySelectorAll('.column-filter-input');
@@ -719,52 +784,49 @@ class BettingDataScraper {
         });
     });
 }
-    renderMobileCards() {
+   // Updated renderMobileCards function
+renderMobileCards() {
     const container = document.getElementById('mobileCards');
     
     if (this.filteredData.length === 0) {
         container.innerHTML = '<div class="no-data-card">No data matches filters</div>';
         return;
     }
-
+    
     container.innerHTML = this.filteredData.map((record, index) => `
-        <div class="betting-card ${record.deeplink ? 'clickable' : ''}" data-link="${record.deeplink || ''}">
-            <div class="card-header">
-                <div class="card-status">
-                    <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
-                    <span class="status-text">${record.live ? 'LIVE' : 'Pre'}</span>
-                </div>
-                <div class="card-book">${record.book || 'Unknown'}</div>
-            </div>
-            <div class="card-game">${this.formatGameName(record)}</div>
-            <div class="card-market"><strong>Market:</strong> ${record.display_name || record.market_type || 'Unknown Market'}</div>
-            <div class="card-outcome-type"><strong>Type:</strong> ${record.outcome_type || 'Unknown Type'}</div>
-            <div class="card-stats">
-                <div class="stat-item">
-                    <span class="stat-label">EV</span>
-                    <span class="stat-value ${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
-                        ${record.ev ? (record.ev * 100).toFixed(2) + '%' : 'N/A'}
+        <div class="two-column-card ${record.deeplink ? 'clickable' : ''}" data-link="${record.deeplink || ''}">
+            <div class="left-column">
+                <div class="game-two-col">${this.formatGameName(record)}</div>
+                <div class="market-two-col">${record.display_name || record.market_type || 'Unknown Market'}</div>
+                <div class="outcome-two-col">${record.outcome_type || 'Unknown Type'}</div>
+                <div class="meta-two-col">
+                    <span class="book-two-col">${record.book || 'Unknown'}</span>
+                    <span class="separator">•</span>
+                    <span class="sport-two-col">${record.sport || 'N/A'}</span>
+                    <span class="separator">•</span>
+                    <span class="live-status-two-col ${record.live ? 'live' : 'prematch'}">
+                        ${record.live ? 'LIVE' : 'PRE'}
                     </span>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Odds</span>
-                    <span class="stat-value">${record.american_odds || 'N/A'}</span>
+                <div class="time-two-col">${this.formatTimestamp(record.last_ts)}</div>
+            </div>
+            <div class="right-column">
+                <div class="ev-two-col ${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
+                    ${record.ev ? (record.ev * 100).toFixed(1) + '%' : 'N/A'}
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Sport</span>
-                    <span class="stat-value">${record.sport || 'N/A'}</span>
+                <div class="odds-two-col">${record.american_odds || 'N/A'}</div>
+                <div class="actions-two-col">
+                    <button class="btn-two-col chart-btn-two-col" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}', dashboard.filteredData[${index}])">
+                        📊
+                    </button>
+                    ${record.deeplink ? `<button class="btn-two-col bet-btn-two-col" onclick="window.open('${record.deeplink}', '_blank')">🎯</button>` : ''}
                 </div>
             </div>
-            <div class="card-actions">
-                <button class="chart-btn mobile-chart-btn" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}', dashboard.filteredData[${index}])">📊 Chart</button>
-                ${record.deeplink ? `<button class="deeplink mobile-deeplink-btn" onclick="window.open('${record.deeplink}', '_blank')">🎯 Bet</button>` : ''}
-            </div>
-            <div class="card-time">${this.formatTimestamp(record.last_ts)}</div>
         </div>
     `).join('');
 
-    // Update click handlers to avoid conflicts with buttons
-    container.querySelectorAll('.betting-card.clickable').forEach(card => {
+    // Fixed: Update click handlers to match the actual class names
+    container.querySelectorAll('.two-column-card.clickable').forEach(card => {
         card.addEventListener('click', (e) => {
             // Don't trigger card click if button was clicked
             if (e.target.tagName === 'BUTTON') return;
@@ -774,7 +836,6 @@ class BettingDataScraper {
         });
     });
 }
-
     // 1. Update the formatGameName function (replace the existing one)
 formatGameName(record) {
     // Priority: Use player names if available, otherwise use team names
