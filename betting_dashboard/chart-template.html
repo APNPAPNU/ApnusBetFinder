@@ -6,10 +6,41 @@
     <title>Historical Odds Chart</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link rel="stylesheet" href="chart-template.css">
-</head>
+    </head>
 <body>
     <div class="container">
         <button class="back-button" onclick="window.close()">← Back to Dashboard</button>
+        
+        <!-- Bet Details Header -->
+        <div class="bet-details">
+            <h2 id="gameTitle">Loading...</h2>
+            <div class="details-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Market</div>
+                    <div class="detail-value" id="marketName">Loading...</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Outcome</div>
+                    <div class="detail-value" id="outcomeType">Loading...</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Expected Value</div>
+                    <div class="detail-value" id="evValue">Loading...</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Sportsbook</div>
+                    <div class="detail-value" id="bookName">Loading...</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Sport</div>
+                    <div class="detail-value" id="sportName">Loading...</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">League</div>
+                    <div class="detail-value" id="leagueName">Loading...</div>
+                </div>
+            </div>
+        </div>
         
         <div class="header">
             <h1 class="title">📈 Historical Odds Analysis</h1>
@@ -64,6 +95,52 @@
         <div id="summary" class="summary"></div>
     </div>
 
+    <script>
+        // Parse URL parameters and populate the header
+        function parseURLParameters() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            const gameTitle = urlParams.get('game_name');
+            const marketName = urlParams.get('market_name');
+            const outcomeType = urlParams.get('outcome_type');
+            const evValue = urlParams.get('ev_value');
+            const bookName = urlParams.get('book_name');
+            const sportName = urlParams.get('sport');
+            const leagueName = urlParams.get('league');
+            
+            // Populate header information
+            if (gameTitle) {
+                document.getElementById('gameTitle').textContent = decodeURIComponent(gameTitle);
+            }
+            if (marketName) {
+                document.getElementById('marketName').textContent = decodeURIComponent(marketName);
+            }
+            if (outcomeType) {
+                document.getElementById('outcomeType').textContent = decodeURIComponent(outcomeType);
+            }
+            if (evValue) {
+                const evElement = document.getElementById('evValue');
+                evElement.textContent = evValue;
+                // Add color based on EV value
+                if (evValue.includes('%')) {
+                    const evNum = parseFloat(evValue.replace('%', ''));
+                    evElement.className = evNum > 0 ? 'ev-positive' : 'ev-negative';
+                }
+            }
+            if (bookName) {
+                document.getElementById('bookName').textContent = decodeURIComponent(bookName);
+            }
+            if (sportName) {
+                document.getElementById('sportName').textContent = decodeURIComponent(sportName);
+            }
+            if (leagueName) {
+                document.getElementById('leagueName').textContent = decodeURIComponent(leagueName);
+            }
+        }
+        
+        // Call on page load
+        document.addEventListener('DOMContentLoaded', parseURLParameters);
+    </script>
     <script src="chart-template.js"></script>
 </body>
 </html>
