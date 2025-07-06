@@ -213,7 +213,7 @@ class BettingDataScraper {
         ev_value: record.ev ? (record.ev * 100).toFixed(2) + '%' : 'N/A',
         book_name: encodeURIComponent(record.book || 'Unknown'),
         sport: encodeURIComponent(record.sport || 'Unknown'),
-        league: encodeURIComponent(record.league || 'Unknown')
+       
     };
     
     // Create URL with all parameters
@@ -384,7 +384,7 @@ class BettingDataScraper {
                                 info.home_team = game.home_team;
                                 info.away_team = game.away_team;
                                 info.sport = game.sport;
-                                info.league = game.league;
+                                
                                 info.player_1 = game.player_1;
                                 info.player_2 = game.player_2;
                                 info.outcome_type = outcome.outcome_type;
@@ -450,7 +450,7 @@ class BettingDataScraper {
                                         home_team: game.home_team,
                                         away_team: game.away_team,
                                         sport: game.sport,
-                                        league: game.league,
+                                       
                                         player_1: game.player_1,
                                         player_2: game.player_2,
                                         outcome_type: outcome.outcome_type
@@ -574,7 +574,7 @@ class BettingDataScraper {
             record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '',
             record.spread || '',
             record.sport || '',
-            record.league || '',
+            
             record.deeplink ? 'Bet' : '',
             'Chart',
             this.formatTimestamp(record.last_ts)
@@ -594,7 +594,7 @@ class BettingDataScraper {
             case 'prob': return record.true_prob || 0;
             case 'spread': return parseFloat(record.spread) || 0;
             case 'sport': return record.sport || '';
-            case 'league': return record.league || '';
+           
             case 'time': return this.getTimestampValue(record.last_ts);
             default: return '';
         }
@@ -696,8 +696,7 @@ class BettingDataScraper {
             <td class="mobile-hide">${record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : ''}</td>
             <td class="mobile-hide">${record.spread || ''}</td>
             <td class="mobile-hide">${record.sport || ''}</td>
-            <td class="mobile-hide">${record.league || ''}</td>
-            <td class="mobile-hide">
+                        <td class="mobile-hide">
                 ${record.deeplink ? `<button class="deeplink" onclick="window.open('${record.deeplink}', '_blank')">🎯</button>` : ''}
             </td>
             <td class="mobile-hide">
@@ -721,53 +720,60 @@ class BettingDataScraper {
     });
 }
     renderMobileCards() {
-        const container = document.getElementById('mobileCards');
-        
-        if (this.filteredData.length === 0) {
-            container.innerHTML = '<div class="no-data-card">No data matches filters</div>';
-            return;
-        }
-
-        container.innerHTML = this.filteredData.map(record => `
-            <div class="betting-card ${record.deeplink ? 'clickable' : ''}" data-link="${record.deeplink || ''}">
-                <div class="card-header">
-                    <div class="card-status">
-                        <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
-                        <span class="status-text">${record.live ? 'LIVE' : 'Pre'}</span>
-                    </div>
-                    <div class="card-book">${record.book || 'Unknown'}</div>
-                </div>
-                <div class="card-game">${this.formatGameName(record)}</div>
-                <div class="card-market">${record.display_name || record.market_type || 'Unknown Market'}</div>
-                <div class="card-outcome-type">${record.outcome_type || 'Unknown Type'}</div>
-                <div class="card-stats">
-                    <div class="stat-item">
-                        <span class="stat-label">EV</span>
-                        <span class="stat-value ${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
-                            ${record.ev ? (record.ev * 100).toFixed(2) + '%' : 'N/A'}
-                        </span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Odds</span>
-                        <span class="stat-value">${record.american_odds || 'N/A'}</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Sport</span>
-                        <span class="stat-value">${record.sport || 'N/A'}</span>
-                    </div>
-                </div>
-                <div class="card-time">${this.formatTimestamp(record.last_ts)}</div>
-                ${record.deeplink ? '<div class="card-bet-button">🎯 Place Bet</div>' : ''}
-            </div>
-        `).join('');
-
-        container.querySelectorAll('.betting-card.clickable').forEach(card => {
-            card.addEventListener('click', () => {
-                const link = card.dataset.link;
-                if (link) window.open(link, '_blank');
-            });
-        });
+    const container = document.getElementById('mobileCards');
+    
+    if (this.filteredData.length === 0) {
+        container.innerHTML = '<div class="no-data-card">No data matches filters</div>';
+        return;
     }
+
+    container.innerHTML = this.filteredData.map((record, index) => `
+        <div class="betting-card ${record.deeplink ? 'clickable' : ''}" data-link="${record.deeplink || ''}">
+            <div class="card-header">
+                <div class="card-status">
+                    <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
+                    <span class="status-text">${record.live ? 'LIVE' : 'Pre'}</span>
+                </div>
+                <div class="card-book">${record.book || 'Unknown'}</div>
+            </div>
+            <div class="card-game">${this.formatGameName(record)}</div>
+            <div class="card-market"><strong>Market:</strong> ${record.display_name || record.market_type || 'Unknown Market'}</div>
+            <div class="card-outcome-type"><strong>Type:</strong> ${record.outcome_type || 'Unknown Type'}</div>
+            <div class="card-stats">
+                <div class="stat-item">
+                    <span class="stat-label">EV</span>
+                    <span class="stat-value ${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
+                        ${record.ev ? (record.ev * 100).toFixed(2) + '%' : 'N/A'}
+                    </span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Odds</span>
+                    <span class="stat-value">${record.american_odds || 'N/A'}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Sport</span>
+                    <span class="stat-value">${record.sport || 'N/A'}</span>
+                </div>
+            </div>
+            <div class="card-actions">
+                <button class="chart-btn mobile-chart-btn" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}', dashboard.filteredData[${index}])">📊 Chart</button>
+                ${record.deeplink ? `<button class="deeplink mobile-deeplink-btn" onclick="window.open('${record.deeplink}', '_blank')">🎯 Bet</button>` : ''}
+            </div>
+            <div class="card-time">${this.formatTimestamp(record.last_ts)}</div>
+        </div>
+    `).join('');
+
+    // Update click handlers to avoid conflicts with buttons
+    container.querySelectorAll('.betting-card.clickable').forEach(card => {
+        card.addEventListener('click', (e) => {
+            // Don't trigger card click if button was clicked
+            if (e.target.tagName === 'BUTTON') return;
+            
+            const link = card.dataset.link;
+            if (link) window.open(link, '_blank');
+        });
+    });
+}
 
     // 1. Update the formatGameName function (replace the existing one)
 formatGameName(record) {
@@ -789,7 +795,7 @@ formatGameName(record) {
         player_1: record.player_1,
         player_2: record.player_2,
         sport: record.sport,
-        league: record.league,
+      
         display_name: record.display_name,
         market_type: record.market_type
     });
@@ -823,7 +829,7 @@ exportToCSV() {
 
     const headers = [
         'Status', 'Book', 'Game', 'Market', 'Outcome Type', 'EV %', 'Odds', 
-        'True Prob', 'Spread', 'Sport', 'League', 'Updated (EST)'
+        'True Prob', 'Spread', 'Sport',  'Updated (EST)'
     ];
 
     const csvContent = [
@@ -839,7 +845,7 @@ exportToCSV() {
             record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : '',
             record.spread || '',
             record.sport || '',
-            record.league || '',
+            
             this.formatTimestamp(record.last_ts)
         ].join(','))
     ].join('\n');
