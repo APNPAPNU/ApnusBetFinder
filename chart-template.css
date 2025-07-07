@@ -277,4 +277,42 @@
             color: #f56565;
             font-weight: bold;
         }
+		.zoom-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 5px;
+    z-index: 1000;
+}
+
+.zoom-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.zoom-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.chart-container {
+    position: relative; /* Make sure this is set for absolute positioning */
+    height: 500px;
+    margin-top: 25px;
+    background: #2d3748;
+    border-radius: 12px;
+    padding: 20px;
+}
     </style>

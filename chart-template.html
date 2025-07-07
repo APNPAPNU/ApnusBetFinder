@@ -9,6 +9,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="icon" href="/favicon.ico">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
     </head>
 <body>
     <div class="container">
@@ -88,8 +89,13 @@
         </div>
 
         <div class="chart-container" id="chartContainer" style="display: none;">
-            <canvas id="oddsChart"></canvas>
-        </div>
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+        <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+        <button class="zoom-btn" onclick="resetZoom()" title="Reset Zoom">⌂</button>
+    </div>
+    <canvas id="oddsChart"></canvas>
+</div>
 
         <div id="summary" class="summary"></div>
     </div>

@@ -29,7 +29,49 @@ if (apiUrl) {
     
     document.getElementById('outcomeInfo').innerHTML = outcomeInfo;
 }
+// Add these functions anywhere in your chart-template.js file
 
+function zoomIn() {
+    if (chart) {
+        chart.zoom(1.2);
+    }
+}
+
+function zoomOut() {
+    if (chart) {
+        chart.zoom(0.8);
+    }
+}
+
+function resetZoom() {
+    if (chart) {
+        chart.resetZoom();
+    }
+}
+
+// Optional: Dynamically adjust data points based on zoom level
+function updateDataBasedOnZoom(chartInstance) {
+    const zoomLevel = chartInstance.getZoomLevel();
+    let newInterval = dataInterval;
+    
+    if (zoomLevel > 2) {
+        newInterval = 1; // Show all points when zoomed in
+    } else if (zoomLevel > 1.5) {
+        newInterval = 2;
+    } else if (zoomLevel < 0.5) {
+        newInterval = 20; // Show fewer points when zoomed out
+    }
+    
+    if (newInterval !== dataInterval) {
+        dataInterval = newInterval;
+        document.getElementById('dataInterval').value = newInterval;
+        if (oddsCache?.body?.odds) {
+            updateChart(oddsCache);
+        }
+    }
+}
+// Add this line right after: chart = new Chart(ctx, {
+Chart.register(ChartZoom);
 // Initialize chart with optimized settings
 function initChart() {
     const ctx = document.getElementById('oddsChart').getContext('2d');
@@ -78,7 +120,34 @@ function initChart() {
                     }
                 }
             },
-            plugins: {
+        plugins: {
+    zoom: {
+        zoom: {
+            wheel: {
+                enabled: true,
+                speed: 0.1,
+            },
+            pinch: {
+                enabled: true
+            },
+            mode: 'x',
+            limits: {
+                x: {min: 'original', max: 'original'},
+            },
+            onZoomComplete: function({chart}) {
+                // Zoom to most recent time (right side of chart)
+                zoomToMostRecent(chart);
+            }
+        },
+        pan: {
+            enabled: true,
+            mode: 'x',
+            limits: {
+                x: {min: 'original', max: 'original'},
+            }
+        }
+    },
+
                 tooltip: {
                     mode: 'nearest',
                     intersect: false,
