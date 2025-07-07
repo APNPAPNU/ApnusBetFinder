@@ -364,8 +364,7 @@ class BettingDataScraper {
     }
 
     async fetchAWSData() {
-        const sports = ["basketball", "baseball", "football", "soccer", "hockey","tennis","boxing","mma",
-                       ];
+        const sports = ["basketball", "baseball", "football", "soccer", "hockey","tennis"];
         let allData = {};
 
         for (const sport of sports) {
@@ -561,72 +560,77 @@ class BettingDataScraper {
     }
 
     applyFilters() {
-        let filtered = this.data;
+    let filtered = this.data;
 
-        // Chain filters for better performance
-        const bookFilter = document.getElementById('bookFilter').value;
-        const sportFilter = document.getElementById('sportFilter').value;
-        const evFilterInput = document.getElementById('evFilter').value;
-        const liveFilter = document.getElementById('liveFilter').value;
-        const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
-        
-        if (bookFilter) {
-            filtered = filtered.filter(d => d.book === bookFilter);
-        }
+    // Filter by allowed sportsbooks only - FIRST ADD MORE HERE AS YOU SEARCH
+    
+    const allowedSportsbooks = ["DRAFTKINGS","FANDUEL","BETMGM","CAESARS","ESPN","HARDROCK","BALLYBET",,"BET365","FANATICS","NONE"];
+    filtered = filtered.filter(d => allowedSportsbooks.includes(d.book));
 
-        if (sportFilter) {
-            filtered = filtered.filter(d => d.sport === sportFilter);
-        }
+    // Chain other filters for better performance
+    const bookFilter = document.getElementById('bookFilter').value;
+    const sportFilter = document.getElementById('sportFilter').value;
+    const evFilterInput = document.getElementById('evFilter').value;
+    const liveFilter = document.getElementById('liveFilter').value;
+    const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+    
+    if (bookFilter) {
+        filtered = filtered.filter(d => d.book === bookFilter);
+    }
 
-        if (evFilterInput !== '' && !isNaN(evFilterInput)) {
-            const evThreshold = parseFloat(evFilterInput) / 100;
-            filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
-        }
+    if (sportFilter) {
+        filtered = filtered.filter(d => d.sport === sportFilter);
+    }
 
-        if (liveFilter !== '') {
-            const isLive = liveFilter === 'true';
-            filtered = filtered.filter(d => d.live === isLive);
-        }
+    if (evFilterInput !== '' && !isNaN(evFilterInput)) {
+        const evThreshold = parseFloat(evFilterInput) / 100;
+        filtered = filtered.filter(d => d.ev && d.ev >= evThreshold);
+    }
 
-        if (searchFilter) {
-            filtered = filtered.filter(d => 
-                (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
-                (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
-                (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
-                (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
-                (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
-                (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
-            );
-        }
+    if (liveFilter !== '') {
+        const isLive = liveFilter === 'true';
+        filtered = filtered.filter(d => d.live === isLive);
+    }
 
-        // Column filters
-        Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
-            if (filterValue) {
-                filtered = filtered.filter(record => {
-                    const cellValue = this.getCellValue(record, parseInt(colIndex));
-                    return cellValue.toLowerCase().includes(filterValue);
-                });
-            }
-        });
+    if (searchFilter) {
+        filtered = filtered.filter(d => 
+            (d.game_name && d.game_name.toLowerCase().includes(searchFilter)) ||
+            (d.home_team && d.home_team.toLowerCase().includes(searchFilter)) ||
+            (d.away_team && d.away_team.toLowerCase().includes(searchFilter)) ||
+            (d.player_1 && d.player_1.toLowerCase().includes(searchFilter)) ||
+            (d.player_2 && d.player_2.toLowerCase().includes(searchFilter)) ||
+            (d.display_name && d.display_name.toLowerCase().includes(searchFilter))
+        );
+    }
 
-        // Sorting
-        if (this.sortColumn) {
-            filtered.sort((a, b) => {
-                const aVal = this.getSortValue(a, this.sortColumn);
-                const bVal = this.getSortValue(b, this.sortColumn);
-                
-                let result = 0;
-                if (aVal < bVal) result = -1;
-                else if (aVal > bVal) result = 1;
-                
-                return this.sortDirection === 'desc' ? -result : result;
+    // Column filters
+    Object.entries(this.columnFilters).forEach(([colIndex, filterValue]) => {
+        if (filterValue) {
+            filtered = filtered.filter(record => {
+                const cellValue = this.getCellValue(record, parseInt(colIndex));
+                return cellValue.toLowerCase().includes(filterValue);
             });
         }
+    });
 
-        this.filteredData = filtered;
-        this.renderTable();
-        this.updateCounts();
+    // Sorting
+    if (this.sortColumn) {
+        filtered.sort((a, b) => {
+            const aVal = this.getSortValue(a, this.sortColumn);
+            const bVal = this.getSortValue(b, this.sortColumn);
+            
+            let result = 0;
+            if (aVal < bVal) result = -1;
+            else if (aVal > bVal) result = 1;
+            
+            return this.sortDirection === 'desc' ? -result : result;
+        });
     }
+
+    this.filteredData = filtered;
+    this.renderTable();
+    this.updateCounts();
+}
 
     getCellValue(record, colIndex) {
         const values = [
