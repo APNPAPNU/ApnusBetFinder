@@ -737,10 +737,16 @@ class BettingDataScraper {
 renderTable() {
     const desktopTable = document.getElementById('dataTable');
     const mobileCards = document.getElementById('mobileCards');
+    const columnFilterRow = document.querySelector('.column-filter-row');
     
     // Check which view is currently active based on display style
     const isMobileViewActive = mobileCards.style.display !== 'none' && 
                               desktopTable.style.display === 'none';
+    
+    // Hide/show column filter row based on view
+    if (columnFilterRow) {
+        columnFilterRow.style.display = isMobileViewActive ? 'none' : 'grid';
+    }
     
     if (isMobileViewActive) {
         this.renderMobileCards();
