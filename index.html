@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="icon" href="/favicon.png">
+    <link rel="icon" href="/favicon.ico">
 </head>
 <body>
     <div class="container">
@@ -16,39 +16,35 @@
             <p>Real-time sports betting arbitrage opportunities</p>
         </div>
 
-        <div class="status-bar">
-            <div class="status-item">
-                <div class="status-indicator" id="statusIndicator"></div>
-                <span id="statusText">Initializing...</span>
-            </div>
-            <div class="refresh-controls">
-                <span>Auto Refresh:</span>
-                <label class="refresh-toggle">
-                    <input type="checkbox" id="refreshToggle" >
-                    <span class="slider"></span>
-                </label>
-                <select id="refreshInterval" class="refresh-select">
-                    <option value="1">1s</option>
-                    <option value="3" selected>3s</option>
-                    <option value="5">5s</option>
-                    <option value="10"selected>10s</option>
-                    <option value="30">30s</option>
-                    <option value="60">1m</option>
-                </select>
-            </div>
-            <div class="status-item">
-                <span>📊 Total: <strong id="totalRecords">0</strong></span>
-            </div>
-            <div class="status-item">
-                <span>🔴 Live: <strong id="liveCount">0</strong></span>
-            </div>
-            <div class="status-item">
-                <span>📋 Pre: <strong id="prematchCount">0</strong></span>
-            </div>
-            <div class="status-item mobile-hide">
-                <span id="lastUpdate">Last Update: Never</span>
-            </div>
+        <div class="status-bar-minimal">
+    <div class="minimal-group">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="status-indicator live" id="statusIndicator"></div>
+            <span class="status-text" id="statusText">Connected</span>
         </div>
+        <div class="minimal-stat">Total: <strong id="totalRecords">0</strong></div>
+        <div class="minimal-stat">Live: <strong class="live-count" id="liveCount">0</strong></div>
+        <div class="minimal-stat">Pre: <strong class="pre-count" id="prematchCount">0</strong></div>
+    </div>
+    <div class="minimal-group">
+        <div class="auto-refresh-controls">
+            <span class="auto-refresh-label">Auto:</span>
+            <label class="refresh-toggle">
+                <input type="checkbox" id="refreshToggle" checked>
+                <span class="slider"></span>
+            </label>
+            <select id="refreshInterval" class="refresh-select">
+                <option value="1">1s</option>
+                <option value="3" selected>3s</option>
+                <option value="5">5s</option>
+                <option value="10">10s</option>
+                <option value="30">30s</option>
+                <option value="60">1m</option>
+            </select>
+        </div>
+        <div class="minimal-stat last-update" id="lastUpdate">Last Update: Never</div>
+    </div>
+</div>
 
         <!-- 移动端过滤器切换 -->
         <div class="mobile-filter-toggle">
