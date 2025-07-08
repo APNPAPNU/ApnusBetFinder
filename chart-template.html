@@ -11,6 +11,7 @@
 <link rel="manifest" href="favicon/site.webmanifest" />
     	<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
+    <link rel="stylesheet" href="chart-template.css">
     </head>
 <body>
     <div class="container">
@@ -138,9 +139,7 @@
             if (sportName) {
                 document.getElementById('sportName').textContent = decodeURIComponent(sportName);
             }
-            if (leagueName) {
-                document.getElementById('leagueName').textContent = decodeURIComponent(leagueName);
-            }
+           
         }
         
         // Call on page load
