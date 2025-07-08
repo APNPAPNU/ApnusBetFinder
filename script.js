@@ -854,7 +854,27 @@ setupMobileHandlers() {
     }
 }
 
-   renderDesktopTable() {
+  // Add this helper function to map book names to logos
+getBookLogo(bookName) {
+    const logoMap = {
+        'DRAFTKINGS': '/logos/draftkings-logo.png',
+        'FANDUEL': '/logos/fanduel-logo.png', 
+        'BETMGM': '/logos/betmgm-logo.png',
+        'CAESARS': '/logos/caesars-logo.png',
+        'ESPN': '/logos/espn-bet-logo.jpeg',
+        'HARDROCK': '/logos/hardrock-logo.jpg',
+        'BALLYBET': '/logos/ballybet-logo.png', // You'll need to add this
+        'BETONLINE': '/logos/betonline-logo.png', // You'll need to add this
+        'BET365': '/logos/bet365-logo.png',
+        'FANATICS': '/logos/fanatics-logo.png', // You'll need to add this
+        'FLIFF': '/logos/fliff-logo.png' // You'll need to add this
+    };
+    
+    const normalizedBook = bookName ? bookName.toUpperCase() : '';
+    return logoMap[normalizedBook] || null;
+}
+
+renderDesktopTable() {
     const tbody = document.getElementById('tableBody');
     
     if (this.filteredData.length === 0) {
@@ -863,12 +883,21 @@ setupMobileHandlers() {
     }
 
     tbody.innerHTML = this.filteredData.map((record, index) => `
-        <tr data-link="${record.deeplink || ''}" class="${record.deeplink ? 'clickable' : ''}">
+        <tr>
             <td>
                 <span class="live-indicator ${record.live ? 'live' : 'prematch'}"></span>
                 <span>${record.live ? 'LIVE' : 'Pre'}</span>
             </td>
-            <td>${record.book || ''}</td>
+            <td>
+                ${this.getBookLogo(record.book) ? 
+                    `<img src="${this.getBookLogo(record.book)}" 
+                         alt="${record.book || 'Unknown'}" 
+                         style="width: 32px; height: 32px; object-fit: contain;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                     <span style="display: none;">${record.book || 'Unknown'}</span>` 
+                    : (record.book || 'Unknown')
+                }
+            </td>
             <td>${this.formatGameName(record)}</td>
             <td>${record.display_name || record.market_type || ''}</td>
             <td>${record.outcome_type || ''}</td>
@@ -879,8 +908,15 @@ setupMobileHandlers() {
             <td class="mobile-hide">${record.true_prob ? (record.true_prob * 100).toFixed(1) + '%' : ''}</td>
             <td class="mobile-hide">${record.spread || ''}</td>
             <td class="mobile-hide">${record.sport || ''}</td>
-                        <td class="mobile-hide">
-                ${record.deeplink ? `<button class="deeplink" onclick="window.open('${record.deeplink}', '_blank')">🎯</button>` : ''}
+            <td class="mobile-hide">
+                ${record.deeplink && this.getBookLogo(record.book) ? 
+                    `<button class="deeplink" onclick="window.open('${record.deeplink}', '_blank')">
+                        <img src="${this.getBookLogo(record.book)}" 
+                             alt="${record.book}" 
+                             style="width: 24px; height: 24px; object-fit: contain;">
+                     </button>` 
+                    : (record.deeplink ? `<button class="deeplink" onclick="window.open('${record.deeplink}', '_blank')">${record.book || 'Bet'}</button>` : '')
+                }
             </td>
             <td class="mobile-hide">
                 <button class="chart-btn" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}', dashboard.filteredData[${index}])">📊</button>
@@ -889,20 +925,11 @@ setupMobileHandlers() {
         </tr>
     `).join('');
 
-    // Add click handlers for clickable rows
-    tbody.querySelectorAll('tr.clickable').forEach(row => {
-        row.addEventListener('click', (e) => {
-            // Don't trigger row click if button was clicked
-            if (e.target.tagName === 'BUTTON') return;
-            
-            const link = row.dataset.link;
-            if (link) {
-                window.open(link, '_blank');
-            }
-        });
-    });
+    // Remove the click handlers for rows since we only want button clicks to work
+    // No additional event listeners needed - buttons handle their own clicks
 }
-   // Updated renderMobileCards function
+
+// Updated renderMobileCards function - remove clickable class and click handlers
 renderMobileCards() {
     const container = document.getElementById('mobileCards');
     
@@ -912,13 +939,22 @@ renderMobileCards() {
     }
     
     container.innerHTML = this.filteredData.map((record, index) => `
-        <div class="two-column-card ${record.deeplink ? 'clickable' : ''}" data-link="${record.deeplink || ''}">
+        <div class="two-column-card">
             <div class="left-column">
                 <div class="game-two-col">${this.formatGameName(record)}</div>
                 <div class="market-two-col">${record.display_name || record.market_type || 'Unknown Market'}</div>
                 <div class="outcome-two-col">${record.outcome_type || 'Unknown Type'}</div>
                 <div class="meta-two-col">
-                    <span class="book-two-col">${record.book || 'Unknown'}</span>
+                    <span class="book-logo-container">
+                        ${this.getBookLogo(record.book) ? 
+                            `<img src="${this.getBookLogo(record.book)}" 
+                                 alt="${record.book || 'Unknown'}" 
+                                 style="width: 24px; height: 24px; object-fit: contain; vertical-align: middle;"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                             <span style="display: none;">${record.book || 'Unknown'}</span>` 
+                            : (record.book || 'Unknown')
+                        }
+                    </span>
                     <span class="separator">•</span>
                     <span class="sport-two-col">${record.sport || 'N/A'}</span>
                     <span class="separator">•</span>
@@ -937,22 +973,22 @@ renderMobileCards() {
                     <button class="btn-two-col chart-btn-two-col" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}', dashboard.filteredData[${index}])">
                         📊
                     </button>
-                    ${record.deeplink ? `<button class="btn-two-col bet-btn-two-col" onclick="window.open('${record.deeplink}', '_blank')">🎯</button>` : ''}
+                    ${record.deeplink ? 
+                        (this.getBookLogo(record.book) ? 
+                            `<button class="btn-two-col bet-btn-two-col" onclick="window.open('${record.deeplink}', '_blank')">
+                                <img src="${this.getBookLogo(record.book)}" 
+                                     alt="${record.book}" 
+                                     style="width: 20px; height: 20px; object-fit: contain;">
+                             </button>` 
+                            : `<button class="btn-two-col bet-btn-two-col" onclick="window.open('${record.deeplink}', '_blank')">${record.book || 'Bet'}</button>`
+                        ) : ''
+                    }
                 </div>
             </div>
         </div>
     `).join('');
 
-    // Fixed: Update click handlers to match the actual class names
-    container.querySelectorAll('.two-column-card.clickable').forEach(card => {
-        card.addEventListener('click', (e) => {
-            // Don't trigger card click if button was clicked
-            if (e.target.tagName === 'BUTTON') return;
-            
-            const link = card.dataset.link;
-            if (link) window.open(link, '_blank');
-        });
-    });
+    // Removed all click handlers - only buttons are clickable now
 }
     // 1. Update the formatGameName function (replace the existing one)
 formatGameName(record) {
