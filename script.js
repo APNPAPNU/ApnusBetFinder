@@ -854,7 +854,7 @@ setupMobileHandlers() {
     }
 }
 
-  // Add this helper function to map book names to logos
+ // Add this helper function to map book names to logos
 getBookLogo(bookName) {
     const logoMap = {
         'DRAFTKINGS': 'logos/draftkings-logo.png',
@@ -878,7 +878,7 @@ renderDesktopTable() {
     const tbody = document.getElementById('tableBody');
     
     if (this.filteredData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="14" class="no-data">No data matches current filters</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" class="no-data">No data matches current filters</td></tr>';
         return;
     }
 
