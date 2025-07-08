@@ -857,17 +857,17 @@ setupMobileHandlers() {
   // Add this helper function to map book names to logos
 getBookLogo(bookName) {
     const logoMap = {
-        'DRAFTKINGS': '/logos/draftkings-logo.png',
-        'FANDUEL': '/logos/fanduel-logo.png', 
-        'BETMGM': '/logos/betmgm-logo.png',
-        'CAESARS': '/logos/caesars-logo.png',
-        'ESPN': '/logos/espn-bet-logo.jpeg',
-        'HARDROCK': '/logos/hardrock-logo.jpg',
-        'BALLYBET': '/logos/ballybet-logo.png', // You'll need to add this
-        'BETONLINE': '/logos/betonline-logo.png', // You'll need to add this
-        'BET365': '/logos/bet365-logo.png',
-        'FANATICS': '/logos/fanatics-logo.png', // You'll need to add this
-        'FLIFF': '/logos/fliff-logo.png' // You'll need to add this
+        'DRAFTKINGS': 'logos/draftkings-logo.png',
+        'FANDUEL': 'logos/fanduel-logo.png', 
+        'BETMGM': 'logos/betmgm-logo.png',
+        'CAESARS': 'logos/caesars-logo.png',
+        'ESPN': 'logos/espn-bet-logo.jpeg',
+        'HARDROCK': 'logos/hardrock-logo.jpg',
+        'BALLYBET': 'logos/ballybet-logo.png', // You'll need to add this
+        'BETONLINE': 'logos/betonline-logo.png', // You'll need to add this
+        'BET365': 'logos/bet365-logo.png',
+        'FANATICS': 'logos/fanatics-logo.png', // You'll need to add this
+        'FLIFF': 'logos/fliff-logo.png' // You'll need to add this
     };
     
     const normalizedBook = bookName ? bookName.toUpperCase() : '';
