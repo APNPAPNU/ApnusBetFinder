@@ -930,6 +930,65 @@ renderDesktopTable() {
 }
 
 // Updated renderMobileCards function - remove clickable class and click handlers
+// Add this new method to group data by market
+groupDataByMarket(data) {
+    const marketGroups = {};
+    
+    data.forEach(record => {
+        // Create a unique market key combining game and market info
+        const marketKey = `${this.formatGameName(record)}_${record.display_name || record.market_type || 'Unknown'}`;
+        
+        if (!marketGroups[marketKey]) {
+            marketGroups[marketKey] = {
+                game_name: record.game_name,
+                home_team: record.home_team,
+                away_team: record.away_team,
+                player_1: record.player_1,
+                player_2: record.player_2,
+                sport: record.sport,
+                display_name: record.display_name,
+                market_type: record.market_type,
+                live: record.live,
+                outcomes: [],
+                bestEV: -999
+            };
+        }
+        
+        // Add this record as an outcome
+        marketGroups[marketKey].outcomes.push(record);
+        
+        // Update best EV for this market
+        if (record.ev && record.ev > marketGroups[marketKey].bestEV) {
+            marketGroups[marketKey].bestEV = record.ev;
+        }
+    });
+    
+    // Convert to array and sort by best EV
+    return Object.values(marketGroups).sort((a, b) => b.bestEV - a.bestEV);
+}
+
+// Add this helper method to get book initials
+getBookInitials(bookName) {
+    if (!bookName) return 'UK';
+    
+    const initials = {
+        'DRAFTKINGS': 'DK',
+        'FANDUEL': 'FD',
+        'BETMGM': 'MGM',
+        'CAESARS': 'CZR',
+        'ESPN': 'ESPN',
+        'HARDROCK': 'HR',
+        'BALLYBET': 'BB',
+        'BETONLINE': 'BOL',
+        'BET365': '365',
+        'FANATICS': 'FAN',
+        'FLIFF': 'FLF'
+    };
+    
+    return initials[bookName.toUpperCase()] || bookName.substring(0, 3).toUpperCase();
+}
+
+// Replace your current renderMobileCards method with this updated version
 renderMobileCards() {
     const container = document.getElementById('mobileCards');
     
@@ -938,57 +997,69 @@ renderMobileCards() {
         return;
     }
     
-    container.innerHTML = this.filteredData.map((record, index) => `
-        <div class="two-column-card">
-            <div class="left-column">
-                <div class="game-two-col">${this.formatGameName(record)}</div>
-                <div class="market-two-col">${record.display_name || record.market_type || 'Unknown Market'}</div>
-                <div class="outcome-two-col">${record.outcome_type || 'Unknown Type'}</div>
-                <div class="meta-two-col">
-                    <span class="book-logo-container">
-                        ${this.getBookLogo(record.book) ? 
-                            `<img src="${this.getBookLogo(record.book)}" 
-                                 alt="${record.book || 'Unknown'}" 
-                                 style="width: 24px; height: 24px; object-fit: contain; vertical-align: middle;"
-                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
-                             <span style="display: none;">${record.book || 'Unknown'}</span>` 
-                            : (record.book || 'Unknown')
-                        }
-                    </span>
-                    <span class="separator">•</span>
-                    <span class="sport-two-col">${record.sport || 'N/A'}</span>
-                    <span class="separator">•</span>
-                    <span class="live-status-two-col ${record.live ? 'live' : 'prematch'}">
-                        ${record.live ? 'LIVE' : 'PRE'}
-                    </span>
+    // Group the flat data by market
+    const groupedData = this.groupDataByMarket(this.filteredData);
+    
+    container.innerHTML = groupedData.map((market, marketIndex) => {
+        const outcomesHtml = market.outcomes.map((outcome, outcomeIndex) => {
+            // Get spread information for display
+            const spreadInfo = outcome.spread ? ` (${outcome.spread})` : '';
+            const outcomeDisplayName = outcome.outcome_type + spreadInfo;
+            
+            return `
+                <div class="compact-outcome">
+                    <div class="compact-outcome-left">
+                        <div class="compact-book-logo">
+                            ${this.getBookLogo(outcome.book) ? 
+                                `<img src="${this.getBookLogo(outcome.book)}" 
+                                     alt="${outcome.book}" 
+                                     class="compact-book-img">` 
+                                : `<span class="compact-book-text">${this.getBookInitials(outcome.book)}</span>`
+                            }
+                        </div>
+                        <div class="compact-outcome-info">
+                            <div class="compact-outcome-type">${outcomeDisplayName}</div>
+                            <div class="compact-odds">${outcome.american_odds || 'N/A'}</div>
+                        </div>
+                    </div>
+                    <div class="compact-outcome-right">
+                        <div class="compact-ev ${outcome.ev > 0 ? 'ev-positive' : 'ev-negative'}">
+                            ${outcome.ev ? (outcome.ev * 100).toFixed(1) + '%' : 'N/A'}
+                        </div>
+                        <div class="compact-actions">
+                            <button class="compact-btn compact-chart-btn" onclick="dashboard.openHistoricalChart('${outcome.outcome_id}', ${outcome.live}, '${outcome.spread || ''}', dashboard.filteredData.find(r => r.outcome_id === '${outcome.outcome_id}'))">
+                                📊
+                            </button>
+                            ${outcome.deeplink ? 
+                                `<button class="compact-btn compact-bet-btn" onclick="window.open('${outcome.deeplink}', '_blank')">Bet</button>` : ''
+                            }
+                        </div>
+                    </div>
                 </div>
-                <div class="time-two-col">${this.formatTimestamp(record.last_ts)}</div>
+            `;
+        }).join('');
+        
+        return `
+            <div class="compact-card">
+                <div class="compact-header">
+                    <div class="compact-game-info">
+                        <div class="compact-game-name">${this.formatGameName(market)}</div>
+                        <div class="compact-market-type">${market.display_name || market.market_type || 'Unknown Market'}</div>
+                    </div>
+                    <div class="compact-meta">
+                        <div class="compact-status ${market.live ? 'live' : 'pre'}">
+                            ${market.live ? 'LIVE' : 'PRE'}
+                        </div>
+                        <div class="compact-best-ev">+${(market.bestEV * 100).toFixed(1)}%</div>
+                    </div>
+                </div>
+                
+                <div class="compact-outcomes">
+                    ${outcomesHtml}
+                </div>
             </div>
-            <div class="right-column">
-                <div class="ev-two-col ${record.ev > 0 ? 'ev-positive' : 'ev-negative'}">
-                    ${record.ev ? (record.ev * 100).toFixed(1) + '%' : 'N/A'}
-                </div>
-                <div class="odds-two-col">${record.american_odds || 'N/A'}</div>
-                <div class="actions-two-col">
-                    <button class="btn-two-col chart-btn-two-col" onclick="dashboard.openHistoricalChart('${record.outcome_id}', ${record.live}, '${record.spread || ''}', dashboard.filteredData[${index}])">
-                        📊
-                    </button>
-                    ${record.deeplink ? 
-                        (this.getBookLogo(record.book) ? 
-                            `<button class="btn-two-col bet-btn-two-col" onclick="window.open('${record.deeplink}', '_blank')">
-                                <img src="${this.getBookLogo(record.book)}" 
-                                     alt="${record.book}" 
-                                     style="width: 20px; height: 20px; object-fit: contain;">
-                             </button>` 
-                            : `<button class="btn-two-col bet-btn-two-col" onclick="window.open('${record.deeplink}', '_blank')">${record.book || 'Bet'}</button>`
-                        ) : ''
-                    }
-                </div>
-            </div>
-        </div>
-    `).join('');
-
-    // Removed all click handlers - only buttons are clickable now
+        `;
+    }).join('');
 }
     // 1. Update the formatGameName function (replace the existing one)
 formatGameName(record) {
