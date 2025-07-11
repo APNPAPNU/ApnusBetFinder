@@ -13,7 +13,698 @@ class BettingDataScraper {
         
         this.init();
     }
+// Add these methods to your BettingDataScraper class
 
+// Method to find arbitrage opportunities
+// REPLACE your existing findArbitrageOpportunities method with this enhanced version
+
+// REPLACE your existing findArbitrageOpportunities method with this FIXED version
+
+// REPLACE your existing findArbitrageOpportunities method with this FIXED version
+
+// REPLACE your existing findArbitrageOpportunities method with this FIXED version
+
+findArbitrageOpportunities(data) {
+    console.log('🔍 Starting arbitrage analysis...');
+    console.log(`📊 Total records to analyze: ${data.length}`);
+    
+    const arbitrageOpportunities = [];
+    const marketGroups = {};
+    
+    // Group by TRUE market (game + market_type + spread combination)
+    // NOT by outcome_id since different outcomes have different outcome_ids
+    data.forEach(record => {
+        // Create a market key based on the actual market, not outcome_id
+        const gameKey = this.formatGameName(record);
+        const marketType = record.display_name || record.market_type || 'Unknown';
+        const spreadKey = record.spread || 'no-spread';
+        
+        // This groups the same market together regardless of outcome type
+        const marketKey = `${gameKey}_${marketType}_${spreadKey}`;
+        
+        if (!marketGroups[marketKey]) {
+            marketGroups[marketKey] = {
+                game_name: gameKey,
+                display_name: marketType,
+                spread: record.spread,
+                sport: record.sport,
+                live: record.live,
+                outcomes: {}
+            };
+        }
+        
+        // Group by outcome_type within the market
+        if (!marketGroups[marketKey].outcomes[record.outcome_type]) {
+            marketGroups[marketKey].outcomes[record.outcome_type] = [];
+        }
+        
+        marketGroups[marketKey].outcomes[record.outcome_type].push(record);
+    });
+    
+    console.log(`🎯 Found ${Object.keys(marketGroups).length} unique markets`);
+    
+    // Analyze each market for arbitrage
+    Object.entries(marketGroups).forEach(([marketKey, market]) => {
+        const outcomeTypes = Object.keys(market.outcomes);
+        console.log(`\n🏟️ Market: ${market.game_name} - ${market.display_name}`);
+        console.log(`📈 Outcome types: ${outcomeTypes.join(', ')}`);
+        
+        // Need at least 2 different outcome types for arbitrage
+        if (outcomeTypes.length >= 2) {
+            console.log(`✅ Market has ${outcomeTypes.length} outcomes - checking for arbitrage`);
+            
+            // Find best odds for each outcome type
+            const bestOdds = {};
+            outcomeTypes.forEach(outcomeType => {
+                const outcomes = market.outcomes[outcomeType];
+                console.log(`  📋 ${outcomeType}: ${outcomes.length} books available`);
+                
+                let bestOutcome = null;
+                let bestImpliedProb = 1;
+                
+                outcomes.forEach(outcome => {
+                    if (outcome.american_odds) {
+                        const impliedProb = this.americanOddsToImpliedProbability(outcome.american_odds);
+                        console.log(`    🏪 ${outcome.book}: ${outcome.american_odds} (${(impliedProb * 100).toFixed(2)}%)`);
+                        
+                        if (impliedProb < bestImpliedProb) {
+                            bestImpliedProb = impliedProb;
+                            bestOutcome = outcome;
+                        }
+                    } else {
+                        console.log(`    ❌ ${outcome.book}: No odds available`);
+                    }
+                });
+                
+                if (bestOutcome) {
+                    bestOdds[outcomeType] = {
+                        outcome: bestOutcome,
+                        impliedProb: bestImpliedProb
+                    };
+                    console.log(`    🎯 Best: ${bestOutcome.book} at ${bestOutcome.american_odds} (${(bestImpliedProb * 100).toFixed(2)}%)`);
+                } else {
+                    console.log(`    ❌ No valid odds found for ${outcomeType}`);
+                }
+            });
+            
+            // Check if we have at least 2 outcomes with odds
+            const validOutcomes = Object.keys(bestOdds);
+            if (validOutcomes.length >= 2) {
+                // Calculate total implied probability
+                const totalImpliedProb = validOutcomes.reduce((sum, outcomeType) => {
+                    return sum + bestOdds[outcomeType].impliedProb;
+                }, 0);
+                
+                console.log(`    📊 Total implied probability: ${(totalImpliedProb * 100).toFixed(2)}%`);
+                
+                // Calculate profit/loss regardless of whether it's positive
+                const profitMargin = (1 - totalImpliedProb) / totalImpliedProb;
+                const profitPercentage = profitMargin * 100;
+                
+                console.log(`    💰 Profit/Loss: ${profitPercentage.toFixed(2)}%`);
+                
+                // Always calculate stakes to show the scenario
+                const arbitrage = this.calculateArbitrageStakes(bestOdds, 100);
+                
+                const opportunity = {
+                    ...market,
+                    bestOdds,
+                    totalImpliedProb,
+                    profit: profitPercentage,
+                    stakes: arbitrage.stakes,
+                    totalStake: arbitrage.totalStake,
+                    guaranteedProfit: arbitrage.guaranteedProfit,
+                    isArbitrage: totalImpliedProb < 1 // True if profitable
+                };
+                
+                arbitrageOpportunities.push(opportunity);
+                
+                if (totalImpliedProb < 1) {
+                    console.log(`    🎉 ARBITRAGE FOUND! Profit: ${profitPercentage.toFixed(2)}%`);
+                } else {
+                    console.log(`    📉 No arbitrage - would lose: ${Math.abs(profitPercentage).toFixed(2)}%`);
+                }
+            } else {
+                console.log(`    ❌ Not enough valid outcomes (${validOutcomes.length}/2)`);
+            }
+        } else {
+            console.log(`    ❌ Not enough outcome types (${outcomeTypes.length}/2)`);
+        }
+    });
+    
+    console.log(`\n📈 Analysis complete:`);
+    console.log(`   Total opportunities: ${arbitrageOpportunities.length}`);
+    console.log(`   Profitable arbitrages: ${arbitrageOpportunities.filter(op => op.isArbitrage).length}`);
+    console.log(`   Unprofitable scenarios: ${arbitrageOpportunities.filter(op => !op.isArbitrage).length}`);
+    
+    // Sort by highest profit (positive first, then least negative)
+    return arbitrageOpportunities.sort((a, b) => b.profit - a.profit);
+}
+
+// ALSO ADD this debug method to check your data structure
+debugMarketGrouping() {
+    console.log('\n🔍 MARKET GROUPING DEBUG:');
+    
+    if (this.filteredData.length > 0) {
+        // Sample some records to see the structure
+        const sampleRecords = this.filteredData.slice(0, 10);
+        
+        sampleRecords.forEach((record, index) => {
+            console.log(`Record ${index + 1}:`);
+            console.log(`  Game: ${this.formatGameName(record)}`);
+            console.log(`  Market: ${record.display_name || record.market_type}`);
+            console.log(`  Spread: ${record.spread || 'none'}`);
+            console.log(`  Outcome Type: ${record.outcome_type}`);
+            console.log(`  Outcome ID: ${record.outcome_id}`);
+            console.log(`  Book: ${record.book}`);
+            console.log(`  Odds: ${record.american_odds}`);
+            console.log('---');
+        });
+        
+        // Check for spread betting pairs
+        const spreadBets = this.filteredData.filter(d => 
+            d.outcome_type === 'AWAY_COVERS' || d.outcome_type === 'HOME_COVERS'
+        );
+        
+        if (spreadBets.length > 0) {
+            console.log('\n📊 SPREAD BETTING ANALYSIS:');
+            
+            // Group spread bets by game and spread
+            const spreadGroups = {};
+            spreadBets.forEach(bet => {
+                const gameKey = this.formatGameName(bet);
+                const spreadKey = bet.spread || 'no-spread';
+                const groupKey = `${gameKey}_${spreadKey}`;
+                
+                if (!spreadGroups[groupKey]) {
+                    spreadGroups[groupKey] = {
+                        game: gameKey,
+                        spread: bet.spread,
+                        away_covers: [],
+                        home_covers: []
+                    };
+                }
+                
+                if (bet.outcome_type === 'AWAY_COVERS') {
+                    spreadGroups[groupKey].away_covers.push(bet);
+                } else if (bet.outcome_type === 'HOME_COVERS') {
+                    spreadGroups[groupKey].home_covers.push(bet);
+                }
+            });
+            
+            Object.entries(spreadGroups).forEach(([groupKey, group]) => {
+                console.log(`\n🏈 ${group.game} (${group.spread}):`);
+                console.log(`  AWAY_COVERS: ${group.away_covers.length} books`);
+                console.log(`  HOME_COVERS: ${group.home_covers.length} books`);
+                
+                if (group.away_covers.length > 0 && group.home_covers.length > 0) {
+                    console.log(`  ✅ Has both sides - should be arbitrage candidate!`);
+                } else {
+                    console.log(`  ❌ Missing one side - no arbitrage possible`);
+                }
+            });
+        }
+    }
+}
+
+// UPDATE your showArbitrageOpportunities method to include the debug
+showArbitrageOpportunities() {
+    console.log('\n🎯 ARBITRAGE ANALYSIS STARTING...');
+    
+    // Debug data structure first
+    this.debugDataStructure();
+    
+    // Debug market grouping
+    this.debugMarketGrouping();
+    
+    const arbitrageOpportunities = this.findArbitrageOpportunities(this.filteredData);
+    
+    console.log(`\n📊 FINAL RESULTS:`);
+    console.log(`   Total opportunities found: ${arbitrageOpportunities.length}`);
+    console.log(`   Profitable arbitrages: ${arbitrageOpportunities.filter(op => op.isArbitrage).length}`);
+    console.log(`   Unprofitable scenarios: ${arbitrageOpportunities.filter(op => !op.isArbitrage).length}`);
+    
+    // Check which view is active
+    const desktopTable = document.getElementById('dataTable');
+    const mobileCards = document.getElementById('mobileCards');
+    const isMobileViewActive = mobileCards.style.display !== 'none' && 
+                              desktopTable.style.display === 'none';
+    
+    if (isMobileViewActive) {
+        this.renderArbitrageMobileCards(arbitrageOpportunities);
+    } else {
+        this.renderArbitrageDesktopTable(arbitrageOpportunities);
+    }
+    
+    console.log('✅ Arbitrage view rendering complete');
+}
+
+// ALSO ADD this debugging method to understand your data better
+debugMarketGrouping() {
+    console.log('\n🔍 MARKET GROUPING DEBUG:');
+    
+    // Sample a few records to understand the structure
+    const sampleRecords = this.filteredData.slice(0, 10);
+    sampleRecords.forEach((record, index) => {
+        console.log(`Record ${index + 1}:`, {
+            outcome_id: record.outcome_id,
+            outcome_type: record.outcome_type,
+            market_type: record.market_type,
+            spread: record.spread,
+            american_odds: record.american_odds,
+            book: record.book,
+            display_name: record.display_name
+        });
+    });
+    
+    // Check for spread-related markets
+    const spreadMarkets = this.filteredData.filter(d => 
+        d.market_type === 'spread' || 
+        (d.outcome_type && (d.outcome_type.includes('COVERS') || d.outcome_type.includes('SPREAD')))
+    );
+    
+    console.log(`\n📊 Found ${spreadMarkets.length} spread-related records`);
+    
+    // Group by outcome_id to see if we have matching pairs
+    const outcomeGroups = {};
+    spreadMarkets.forEach(record => {
+        if (!outcomeGroups[record.outcome_id]) {
+            outcomeGroups[record.outcome_id] = {};
+        }
+        if (!outcomeGroups[record.outcome_id][record.outcome_type]) {
+            outcomeGroups[record.outcome_id][record.outcome_type] = [];
+        }
+        outcomeGroups[record.outcome_id][record.outcome_type].push(record);
+    });
+    
+    console.log('\n📋 Outcome grouping for spread markets:');
+    Object.entries(outcomeGroups).forEach(([outcomeId, outcomes]) => {
+        const outcomeTypes = Object.keys(outcomes);
+        console.log(`${outcomeId}: ${outcomeTypes.join(', ')} (${outcomeTypes.length} types)`);
+        
+        if (outcomeTypes.length >= 2) {
+            console.log(`  ✅ This should create an arbitrage opportunity!`);
+        }
+    });
+}
+
+// ALSO ADD this debugging method to understand your data better
+debugMarketGrouping() {
+    console.log('\n🔍 MARKET GROUPING DEBUG:');
+    
+    // Sample a few records to understand the structure
+    const sampleRecords = this.filteredData.slice(0, 10);
+    sampleRecords.forEach((record, index) => {
+        console.log(`Record ${index + 1}:`, {
+            outcome_id: record.outcome_id,
+            outcome_type: record.outcome_type,
+            market_type: record.market_type,
+            spread: record.spread,
+            american_odds: record.american_odds,
+            book: record.book,
+            display_name: record.display_name
+        });
+    });
+    
+    // Check for spread-related markets
+    const spreadMarkets = this.filteredData.filter(d => 
+        d.market_type === 'spread' || 
+        (d.outcome_type && (d.outcome_type.includes('COVERS') || d.outcome_type.includes('SPREAD')))
+    );
+    
+    console.log(`\n📊 Found ${spreadMarkets.length} spread-related records`);
+    
+    // Group by outcome_id to see if we have matching pairs
+    const outcomeGroups = {};
+    spreadMarkets.forEach(record => {
+        if (!outcomeGroups[record.outcome_id]) {
+            outcomeGroups[record.outcome_id] = {};
+        }
+        if (!outcomeGroups[record.outcome_id][record.outcome_type]) {
+            outcomeGroups[record.outcome_id][record.outcome_type] = [];
+        }
+        outcomeGroups[record.outcome_id][record.outcome_type].push(record);
+    });
+    
+    console.log('\n📋 Outcome grouping for spread markets:');
+    Object.entries(outcomeGroups).forEach(([outcomeId, outcomes]) => {
+        const outcomeTypes = Object.keys(outcomes);
+        console.log(`${outcomeId}: ${outcomeTypes.join(', ')} (${outcomeTypes.length} types)`);
+        
+        if (outcomeTypes.length >= 2) {
+            console.log(`  ✅ This should create an arbitrage opportunity!`);
+        }
+    });
+}
+// REPLACE your existing renderArbitrageDesktopTable method with this enhanced version
+
+renderArbitrageDesktopTable(arbitrageOpportunities) {
+    const tbody = document.getElementById('tableBody');
+    
+    console.log(`🖥️ Rendering ${arbitrageOpportunities.length} opportunities in desktop table`);
+    
+    if (arbitrageOpportunities.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="13" class="no-data">No arbitrage opportunities found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = arbitrageOpportunities.map(arb => {
+        const outcomeTypes = Object.keys(arb.bestOdds);
+        const isProfit = arb.isArbitrage;
+        const statusClass = isProfit ? 'profit' : 'loss';
+        const statusText = isProfit ? 'ARBITRAGE' : 'LOSS';
+        
+        return `
+            <tr class="arbitrage-row ${statusClass}">
+                <td colspan="13" class="arbitrage-header">
+                    <div class="arb-summary">
+                        <div class="arb-game">
+                            <strong>${arb.game_name}</strong>
+                            <span class="arb-market">${arb.display_name}</span>
+                            ${arb.spread ? `<span class="arb-spread">(${arb.spread})</span>` : ''}
+                            <span class="live-indicator ${arb.live ? 'live' : 'prematch'}"></span>
+                            <span class="arb-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="arb-profit">
+                            <strong>${isProfit ? 'Profit' : 'Loss'}: ${Math.abs(arb.profit).toFixed(2)}%</strong>
+                            <span class="arb-guaranteed ${statusClass}">
+                                ${isProfit ? '+' : '-'}$${Math.abs(arb.guaranteedProfit).toFixed(2)} 
+                                ${isProfit ? 'guaranteed' : 'loss'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="arb-details">
+                        ${outcomeTypes.map(outcomeType => {
+                            const stake = arb.stakes[outcomeType];
+                            return `
+                                <div class="arb-bet">
+                                    <span class="arb-book">${stake.book}</span>
+                                    <span class="arb-outcome">${outcomeType}</span>
+                                    <span class="arb-odds">${stake.odds}</span>
+                                    <span class="arb-stake">Bet: $${stake.stake.toFixed(2)}</span>
+                                    <span class="arb-payout">Payout: $${stake.payout.toFixed(2)}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// REPLACE your existing renderArbitrageMobileCards method with this enhanced version
+
+renderArbitrageMobileCards(arbitrageOpportunities) {
+    const container = document.getElementById('mobileCards');
+    
+    console.log(`📱 Rendering ${arbitrageOpportunities.length} opportunities in mobile cards`);
+    
+    if (arbitrageOpportunities.length === 0) {
+        container.innerHTML = '<div class="no-data-card">No arbitrage opportunities found</div>';
+        return;
+    }
+    
+    container.innerHTML = arbitrageOpportunities.map(arb => {
+        const outcomeTypes = Object.keys(arb.bestOdds);
+        const isProfit = arb.isArbitrage;
+        const statusClass = isProfit ? 'profit' : 'loss';
+        const statusText = isProfit ? 'ARBITRAGE' : 'LOSS';
+        
+        return `
+            <div class="arbitrage-card ${statusClass}">
+                <div class="arb-card-header">
+                    <div class="arb-game-info">
+                        <div class="arb-game-name">${arb.game_name}</div>
+                        <div class="arb-market-name">${arb.display_name}</div>
+                        ${arb.spread ? `<div class="arb-spread-info">${arb.spread}</div>` : ''}
+                    </div>
+                    <div class="arb-profit-info">
+                        <div class="arb-profit-percent ${statusClass}">
+                            ${isProfit ? '+' : '-'}${Math.abs(arb.profit).toFixed(2)}%
+                        </div>
+                        <div class="arb-guaranteed-profit ${statusClass}">
+                            ${isProfit ? '+' : '-'}$${Math.abs(arb.guaranteedProfit).toFixed(2)}
+                        </div>
+                        <div class="arb-status ${arb.live ? 'live' : 'pre'}">${arb.live ? 'LIVE' : 'PRE'}</div>
+                        <div class="arb-type ${statusClass}">${statusText}</div>
+                    </div>
+                </div>
+                
+                <div class="arb-bets">
+                    ${outcomeTypes.map(outcomeType => {
+                        const stake = arb.stakes[outcomeType];
+                        return `
+                            <div class="arb-bet-card">
+                                <div class="arb-bet-header">
+                                    <span class="arb-book-name">${stake.book}</span>
+                                    <span class="arb-outcome-type">${outcomeType}</span>
+                                </div>
+                                <div class="arb-bet-details">
+                                    <div class="arb-odds-display">${stake.odds}</div>
+                                    <div class="arb-stake-amount">Bet: $${stake.stake.toFixed(2)}</div>
+                                    <div class="arb-payout-amount">→ $${stake.payout.toFixed(2)}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ADD this method to help debug data structure
+debugDataStructure() {
+    console.log('\n🔍 DATA STRUCTURE ANALYSIS:');
+    
+    if (this.filteredData.length > 0) {
+        const sample = this.filteredData[0];
+        console.log('Sample record keys:', Object.keys(sample));
+        console.log('Sample record:', sample);
+        
+        // Check for required fields
+        const requiredFields = ['outcome_id', 'outcome_type', 'american_odds', 'book'];
+        requiredFields.forEach(field => {
+            const hasField = this.filteredData.filter(d => d[field] !== undefined).length;
+            console.log(`${field}: ${hasField}/${this.filteredData.length} records have this field`);
+        });
+        
+        // Check outcome types
+        const outcomeTypes = new Set(this.filteredData.map(d => d.outcome_type).filter(Boolean));
+        console.log('Unique outcome types:', [...outcomeTypes]);
+        
+        // Check outcome IDs
+        const outcomeIds = new Set(this.filteredData.map(d => d.outcome_id).filter(Boolean));
+        console.log(`Unique outcome IDs: ${outcomeIds.size}`);
+        
+        // Check books
+        const books = new Set(this.filteredData.map(d => d.book).filter(Boolean));
+        console.log('Available books:', [...books]);
+    } else {
+        console.log('❌ No filtered data available');
+    }
+}
+
+// Convert American odds to implied probability
+americanOddsToImpliedProbability(americanOdds) {
+    const odds = parseInt(americanOdds);
+    if (odds > 0) {
+        return 100 / (odds + 100);
+    } else {
+        return Math.abs(odds) / (Math.abs(odds) + 100);
+    }
+}
+
+// Calculate arbitrage stakes
+calculateArbitrageStakes(bestOdds, totalBetAmount) {
+    const stakes = {};
+    const outcomeTypes = Object.keys(bestOdds);
+    let totalStake = 0;
+    
+    outcomeTypes.forEach(outcomeType => {
+        const impliedProb = bestOdds[outcomeType].impliedProb;
+        const stake = totalBetAmount * impliedProb;
+        stakes[outcomeType] = {
+            stake: stake,
+            book: bestOdds[outcomeType].outcome.book,
+            odds: bestOdds[outcomeType].outcome.american_odds,
+            payout: this.calculatePayout(stake, bestOdds[outcomeType].outcome.american_odds)
+        };
+        totalStake += stake;
+    });
+    
+    const guaranteedProfit = Object.values(stakes)[0].payout - totalStake;
+    
+    return {
+        stakes,
+        totalStake,
+        guaranteedProfit
+    };
+}
+
+// Calculate payout from stake and American odds
+calculatePayout(stake, americanOdds) {
+    const odds = parseInt(americanOdds);
+    if (odds > 0) {
+        return stake + (stake * odds / 100);
+    } else {
+        return stake + (stake * 100 / Math.abs(odds));
+    }
+}
+
+// Method to toggle between regular view and arbitrage view
+toggleArbitrageView() {
+    const currentView = document.getElementById('currentView').textContent;
+    const arbitrageBtn = document.getElementById('arbitrageToggle');
+    
+    if (currentView === 'regular') {
+        // Switch to arbitrage view
+        this.showArbitrageOpportunities();
+        document.getElementById('currentView').textContent = 'arbitrage';
+        arbitrageBtn.textContent = '📊 Regular View';
+        arbitrageBtn.style.background = '#e74c3c';
+    } else {
+        // Switch back to regular view
+        this.renderTable();
+        document.getElementById('currentView').textContent = 'regular';
+        arbitrageBtn.textContent = '🔄 Arbitrage View';
+        arbitrageBtn.style.background = '#9b59b6';
+    }
+}
+
+// Method to display arbitrage opportunities
+// REPLACE your existing showArbitrageOpportunities method with this version
+
+showArbitrageOpportunities() {
+    console.log('\n🎯 ARBITRAGE ANALYSIS STARTING...');
+    
+    // Debug data structure first
+    this.debugDataStructure();
+    
+    const arbitrageOpportunities = this.findArbitrageOpportunities(this.filteredData);
+    
+    console.log(`\n📊 FINAL RESULTS:`);
+    console.log(`   Total opportunities found: ${arbitrageOpportunities.length}`);
+    console.log(`   Profitable arbitrages: ${arbitrageOpportunities.filter(op => op.isArbitrage).length}`);
+    console.log(`   Unprofitable scenarios: ${arbitrageOpportunities.filter(op => !op.isArbitrage).length}`);
+    
+    // Check which view is active
+    const desktopTable = document.getElementById('dataTable');
+    const mobileCards = document.getElementById('mobileCards');
+    const isMobileViewActive = mobileCards.style.display !== 'none' && 
+                              desktopTable.style.display === 'none';
+    
+    if (isMobileViewActive) {
+        this.renderArbitrageMobileCards(arbitrageOpportunities);
+    } else {
+        this.renderArbitrageDesktopTable(arbitrageOpportunities);
+    }
+    
+    console.log('✅ Arbitrage view rendering complete');
+}
+
+// ALSO ADD this to your applyFilters method - add this line after the sportsbook filter:
+// Right after this line: filtered = filtered.filter(d => allowedSportsbooks.includes(d.book));
+// Add this debugging:
+
+
+// Render arbitrage opportunities in desktop table format
+renderArbitrageDesktopTable(arbitrageOpportunities) {
+    const tbody = document.getElementById('tableBody');
+    
+    if (arbitrageOpportunities.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="13" class="no-data">No arbitrage opportunities found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = arbitrageOpportunities.map(arb => {
+        const outcomeTypes = Object.keys(arb.bestOdds);
+        
+        return `
+            <tr class="arbitrage-row">
+                <td colspan="13" class="arbitrage-header">
+                    <div class="arb-summary">
+                        <div class="arb-game">
+                            <strong>${arb.game_name}</strong>
+                            <span class="arb-market">${arb.display_name}</span>
+                            ${arb.spread ? `<span class="arb-spread">(${arb.spread})</span>` : ''}
+                            <span class="live-indicator ${arb.live ? 'live' : 'prematch'}"></span>
+                        </div>
+                        <div class="arb-profit">
+                            <strong>Profit: ${arb.profit.toFixed(2)}%</strong>
+                            <span class="arb-guaranteed">$${arb.guaranteedProfit.toFixed(2)} guaranteed</span>
+                        </div>
+                    </div>
+                    <div class="arb-details">
+                        ${outcomeTypes.map(outcomeType => {
+                            const stake = arb.stakes[outcomeType];
+                            return `
+                                <div class="arb-bet">
+                                    <span class="arb-book">${stake.book}</span>
+                                    <span class="arb-outcome">${outcomeType}</span>
+                                    <span class="arb-odds">${stake.odds}</span>
+                                    <span class="arb-stake">Bet: $${stake.stake.toFixed(2)}</span>
+                                    <span class="arb-payout">Payout: $${stake.payout.toFixed(2)}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Render arbitrage opportunities in mobile card format
+renderArbitrageMobileCards(arbitrageOpportunities) {
+    const container = document.getElementById('mobileCards');
+    
+    if (arbitrageOpportunities.length === 0) {
+        container.innerHTML = '<div class="no-data-card">No arbitrage opportunities found</div>';
+        return;
+    }
+    
+    container.innerHTML = arbitrageOpportunities.map(arb => {
+        const outcomeTypes = Object.keys(arb.bestOdds);
+        
+        return `
+            <div class="arbitrage-card">
+                <div class="arb-card-header">
+                    <div class="arb-game-info">
+                        <div class="arb-game-name">${arb.game_name}</div>
+                        <div class="arb-market-name">${arb.display_name}</div>
+                        ${arb.spread ? `<div class="arb-spread-info">${arb.spread}</div>` : ''}
+                    </div>
+                    <div class="arb-profit-info">
+                        <div class="arb-profit-percent">${arb.profit.toFixed(2)}%</div>
+                        <div class="arb-guaranteed-profit">$${arb.guaranteedProfit.toFixed(2)}</div>
+                        <div class="arb-status ${arb.live ? 'live' : 'pre'}">${arb.live ? 'LIVE' : 'PRE'}</div>
+                    </div>
+                </div>
+                
+                <div class="arb-bets">
+                    ${outcomeTypes.map(outcomeType => {
+                        const stake = arb.stakes[outcomeType];
+                        return `
+                            <div class="arb-bet-card">
+                                <div class="arb-bet-header">
+                                    <span class="arb-book-name">${stake.book}</span>
+                                    <span class="arb-outcome-type">${outcomeType}</span>
+                                </div>
+                                <div class="arb-bet-details">
+                                    <div class="arb-odds-display">${stake.odds}</div>
+                                    <div class="arb-stake-amount">Bet: $${stake.stake.toFixed(2)}</div>
+                                    <div class="arb-payout-amount">→ $${stake.payout.toFixed(2)}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
     init() {
         this.setupEventListeners();
         this.setupMobileHandlers();
@@ -559,13 +1250,24 @@ class BettingDataScraper {
         select.value = currentValue;
     }
 
-    applyFilters() {
+// Replace the existing applyFilters method with this updated version
+
+applyFilters() {
     let filtered = this.data;
 
     // Filter by allowed sportsbooks only - FIRST ADD MORE HERE AS YOU SEARCH
-    
-    const allowedSportsbooks = ["DRAFTKINGS","FANDUEL","BETMGM","CAESARS","ESPN","HARDROCK","BALLYBET",,"BET365","FANATICS","NONE"];
+    const allowedSportsbooks = ["DRAFTKINGS","FANDUEL","BETMGM","CAESARS","ESPN","HARDROCK","BALLYBET","BET365","FANATICS","NONE"];
     filtered = filtered.filter(d => allowedSportsbooks.includes(d.book));
+
+console.log(`🔍 Filtering debug:`);
+console.log(`   Initial records: ${this.data.length}`);
+console.log(`   After sportsbook filter: ${filtered.length}`);
+console.log(`   Allowed sportsbooks: ${allowedSportsbooks.join(', ')}`);
+// Sample some records to check structure
+if (filtered.length > 0) {
+    const sample = filtered.slice(0, 3);
+    console.log('Sample filtered records:', sample);
+}
 
     // Chain other filters for better performance
     const bookFilter = document.getElementById('bookFilter').value;
@@ -628,10 +1330,17 @@ class BettingDataScraper {
     }
 
     this.filteredData = filtered;
-    this.renderTable();
+    
+    // Check current view and render accordingly
+    const currentView = document.getElementById('currentView');
+    if (currentView && currentView.textContent === 'arbitrage') {
+        this.showArbitrageOpportunities();
+    } else {
+        this.renderTable();
+    }
+    
     this.updateCounts();
 }
-
     getCellValue(record, colIndex) {
         const values = [
             record.live ? 'LIVE' : 'Pre',
@@ -1164,6 +1873,8 @@ exportToCSV() {
 
 // 初始化
 let dashboard;
+// Replace the existing DOMContentLoaded event listener with this updated version
+
 document.addEventListener('DOMContentLoaded', () => {
     dashboard = new BettingDataScraper();
     
@@ -1171,7 +1882,17 @@ document.addEventListener('DOMContentLoaded', () => {
         dashboard.handleVisibilityChange();
     });
 
-    // 导出按钮
+    // Get the controls container
+    const controls = document.querySelector('.controls');
+    
+    // Add hidden element to track current view state
+    const currentView = document.createElement('span');
+    currentView.id = 'currentView';
+    currentView.textContent = 'regular';
+    currentView.style.display = 'none';
+    document.body.appendChild(currentView);
+
+    // Export button
     const exportBtn = document.createElement('button');
     exportBtn.textContent = '📊 Export';
     exportBtn.className = 'filter-input';
@@ -1181,13 +1902,12 @@ document.addEventListener('DOMContentLoaded', () => {
     exportBtn.style.cursor = 'pointer';
     exportBtn.onclick = () => dashboard.exportToCSV();
     
-    const controls = document.querySelector('.controls');
     const exportGroup = document.createElement('div');
     exportGroup.className = 'filter-group';
     exportGroup.appendChild(exportBtn);
     controls.appendChild(exportGroup);
 
-    // 手动刷新按钮
+    // Manual refresh button
     const refreshBtn = document.createElement('button');
     refreshBtn.textContent = '🔄 Refresh';
     refreshBtn.className = 'filter-input';
@@ -1206,9 +1926,36 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshGroup.appendChild(refreshBtn);
     controls.appendChild(refreshGroup);
 
+    // Arbitrage toggle button
+    const arbitrageBtn = document.createElement('button');
+    arbitrageBtn.textContent = '🔄 Arbitrage View';
+    arbitrageBtn.className = 'filter-input';
+    arbitrageBtn.id = 'arbitrageToggle';
+    arbitrageBtn.style.background = '#9b59b6';
+    arbitrageBtn.style.color = 'white';
+    arbitrageBtn.style.border = 'none';
+    arbitrageBtn.style.cursor = 'pointer';
+    arbitrageBtn.onclick = () => dashboard.toggleArbitrageView();
+    
+    const arbitrageGroup = document.createElement('div');
+    arbitrageGroup.className = 'filter-group';
+    arbitrageGroup.appendChild(arbitrageBtn);
+    controls.appendChild(arbitrageGroup);
+
     window.addEventListener('beforeunload', () => {
         dashboard.destroy();
     });
+});
+
+// Keep the existing deeplink click handler
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('deeplink')) {
+        const row = e.target.closest('tr');
+        const link = row.dataset.link;
+        if (link) {
+            window.open(link, '_blank');
+        }
+    }
 });
 
 // Deeplink处理

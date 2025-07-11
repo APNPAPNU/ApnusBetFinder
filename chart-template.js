@@ -3,13 +3,19 @@ let oddsCache = {};
 let chart = null;
 let dataInterval = 2; // Default to every 2nd point
 let apiUrl = '';
-let selectedSpread = null; // Track selected spread
-let availableSpreads = []; // Available spreads from API
+let selectedSpread = null;
+let availableSpreads = [];
+
+// Performance optimizations
+const COLORS = [
+    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+    '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+];
 
 // Parse URL parameters
 const urlParams = new URLSearchParams(window.location.search);
 apiUrl = urlParams.get('api_url');
-selectedSpread = urlParams.get('spread'); // Get current spread from URL
+selectedSpread = urlParams.get('spread');
 
 // Display API URL
 document.getElementById('apiUrl').textContent = apiUrl || 'No URL provided';
@@ -29,8 +35,21 @@ if (apiUrl) {
     
     document.getElementById('outcomeInfo').innerHTML = outcomeInfo;
 }
-// Add these functions anywhere in your chart-template.js file
 
+// Debounce function for performance
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Optimized zoom functions
 function zoomIn() {
     if (chart) {
         chart.zoom(1.2);
@@ -49,32 +68,15 @@ function resetZoom() {
     }
 }
 
-// Optional: Dynamically adjust data points based on zoom level
-function updateDataBasedOnZoom(chartInstance) {
-    const zoomLevel = chartInstance.getZoomLevel();
-    let newInterval = dataInterval;
-    
-    if (zoomLevel > 2) {
-        newInterval = 1; // Show all points when zoomed in
-    } else if (zoomLevel > 1.5) {
-        newInterval = 2;
-    } else if (zoomLevel < 0.5) {
-        newInterval = 20; // Show fewer points when zoomed out
-    }
-    
-    if (newInterval !== dataInterval) {
-        dataInterval = newInterval;
-        document.getElementById('dataInterval').value = newInterval;
-        if (oddsCache?.body?.odds) {
-            updateChart(oddsCache);
-        }
-    }
-}
-// Add this line right after: chart = new Chart(ctx, {
-Chart.register(ChartZoom);
-// Initialize chart with optimized settings
+// Initialize chart with maximum performance optimizations
 function initChart() {
     const ctx = document.getElementById('oddsChart').getContext('2d');
+    
+    // Disable high DPI scaling for better performance
+    ctx.canvas.style.imageRendering = 'pixelated';
+    
+    Chart.register(ChartZoom);
+    
     chart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -84,12 +86,28 @@ function initChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: {
-                duration: 0 // Disable animations for better performance
+            // Disable ALL animations for maximum performance
+            animation: false,
+            transitions: {
+                active: { animation: { duration: 0 } },
+                resize: { animation: { duration: 0 } },
+                show: { animation: { duration: 0 } },
+                hide: { animation: { duration: 0 } }
             },
+            // Optimize interactions
             interaction: {
-                mode: 'nearest', // More efficient than 'index'
+                mode: 'nearest',
                 intersect: false,
+                includeInvisible: false
+            },
+            // Reduce redraws
+            onHover: null,
+            hover: {
+                animationDuration: 0
+            },
+            // Optimize layout
+            layout: {
+                padding: 0
             },
             scales: {
                 x: {
@@ -100,10 +118,14 @@ function initChart() {
                     },
                     ticks: {
                         color: '#a0aec0',
-                        maxTicksLimit: 10 // Limit number of x-axis labels
+                        maxTicksLimit: 8, // Reduced from 10
+                        maxRotation: 0, // Prevent rotation for better performance
+                        minRotation: 0
                     },
                     grid: {
-                        color: '#4a5568'
+                        color: '#4a5568',
+                        lineWidth: 1,
+                        drawOnChartArea: false // Only draw on axis
                     }
                 },
                 y: {
@@ -113,42 +135,40 @@ function initChart() {
                         color: '#a0aec0'
                     },
                     ticks: {
-                        color: '#a0aec0'
+                        color: '#a0aec0',
+                        maxTicksLimit: 8 // Reduced from default
                     },
                     grid: {
-                        color: '#4a5568'
+                        color: '#4a5568',
+                        lineWidth: 1
                     }
                 }
             },
-        plugins: {
-    zoom: {
-        zoom: {
-            wheel: {
-                enabled: true,
-                speed: 0.1,
-            },
-            pinch: {
-                enabled: true
-            },
-            mode: 'x',
-            limits: {
-                x: {min: 'original', max: 'original'},
-            },
-            onZoomComplete: function({chart}) {
-                // Zoom to most recent time (right side of chart)
-                zoomToMostRecent(chart);
-            }
-        },
-        pan: {
-            enabled: true,
-            mode: 'x',
-            limits: {
-                x: {min: 'original', max: 'original'},
-            }
-        }
-    },
-
+            plugins: {
+                zoom: {
+                    zoom: {
+                        wheel: {
+                            enabled: true,
+                            speed: 0.1,
+                        },
+                        pinch: {
+                            enabled: true
+                        },
+                        mode: 'x',
+                        limits: {
+                            x: {min: 'original', max: 'original'},
+                        }
+                    },
+                    pan: {
+                        enabled: true,
+                        mode: 'x',
+                        limits: {
+                            x: {min: 'original', max: 'original'},
+                        }
+                    }
+                },
                 tooltip: {
+                    enabled: true,
                     mode: 'nearest',
                     intersect: false,
                     backgroundColor: '#2d3748',
@@ -156,19 +176,19 @@ function initChart() {
                     bodyColor: '#ffffff',
                     borderColor: '#4a5568',
                     borderWidth: 1,
+                    // Optimize tooltip callbacks
                     callbacks: {
                         title: function(context) {
                             return 'Time: ' + context[0].label;
                         },
                         afterBody: function(context) {
-                            // Calculate fair line (average) for tooltip
                             const validOdds = context
                                 .filter(item => item.raw !== null && item.raw !== undefined)
                                 .map(item => item.raw);
                             
                             if (validOdds.length > 0) {
-                                const average = validOdds.reduce((a, b) => a + b, 0) / validOdds.length;
-                                return [`Fair Line (Average): ${Math.round(average)}`, `Spread: ${selectedSpread || 'N/A'}`];
+                                const average = Math.round(validOdds.reduce((a, b) => a + b, 0) / validOdds.length);
+                                return [`Fair Line: ${average}`, `Spread: ${selectedSpread || 'N/A'}`];
                             }
                             return [];
                         }
@@ -177,36 +197,49 @@ function initChart() {
                 legend: {
                     display: true,
                     labels: {
-                        color: '#a0aec0'
+                        color: '#a0aec0',
+                        usePointStyle: false, // Faster rendering
+                        boxWidth: 12,
+                        boxHeight: 12
                     }
                 }
             },
             elements: {
                 point: {
-                    radius: 1, // Smaller points for better performance
-                    hoverRadius: 3
+                    radius: 0, // Hide points by default for better performance
+                    hoverRadius: 2,
+                    hitRadius: 4
                 },
                 line: {
-                    tension: 0 // Straight lines are faster to render
+                    tension: 0, // Straight lines are faster
+                    borderWidth: 1.5 // Thinner lines
+                }
+            },
+            // Optimize dataset updates
+            datasets: {
+                line: {
+                    pointRadius: 0,
+                    pointHoverRadius: 2
                 }
             }
         }
     });
 }
 
-// Create spread selector dropdown
+// Optimized spread selector with minimal DOM manipulation
 function createSpreadSelector(spreads) {
     const controlsDiv = document.querySelector('.controls');
-    
-    // Remove existing spread selector if it exists
     const existingSelector = document.getElementById('spreadSelector');
+    
     if (existingSelector) {
         existingSelector.remove();
     }
     
     if (spreads.length === 0) return;
     
-    // Create spread selector container
+    // Use document fragment for better performance
+    const fragment = document.createDocumentFragment();
+    
     const spreadContainer = document.createElement('div');
     spreadContainer.className = 'control-group';
     spreadContainer.id = 'spreadSelector';
@@ -227,32 +260,28 @@ function createSpreadSelector(spreads) {
         margin-left: 10px;
     `;
     
-    // Sort spreads numerically
-    const sortedSpreads = [...spreads].sort((a, b) => parseFloat(a) - parseFloat(b));
+    // Sort spreads once
+    const sortedSpreads = spreads.slice().sort((a, b) => parseFloat(a) - parseFloat(b));
     
-    // Add options
-    sortedSpreads.forEach(spread => {
-        const option = document.createElement('option');
-        option.value = spread;
-        option.textContent = spread > 0 ? `+${spread}` : spread;
-        if (spread == selectedSpread) {
-            option.selected = true;
-        }
-        select.appendChild(option);
-    });
+    // Batch create options
+    const optionsHTML = sortedSpreads.map(spread => {
+        const displayText = spread > 0 ? `+${spread}` : spread;
+        const selected = spread == selectedSpread ? 'selected' : '';
+        return `<option value="${spread}" ${selected}>${displayText}</option>`;
+    }).join('');
     
-    // Add event listener
+    select.innerHTML = optionsHTML;
     select.addEventListener('change', updateSpreadSelection);
     
     spreadContainer.appendChild(label);
     spreadContainer.appendChild(select);
+    fragment.appendChild(spreadContainer);
     
-    // Insert before the data interval selector
     const dataIntervalGroup = controlsDiv.querySelector('.control-group');
-    controlsDiv.insertBefore(spreadContainer, dataIntervalGroup);
+    controlsDiv.insertBefore(fragment, dataIntervalGroup);
 }
 
-// Update spread selection
+// Optimized spread update
 function updateSpreadSelection() {
     const select = document.getElementById('spreadSelect');
     const newSpread = select.value;
@@ -260,48 +289,46 @@ function updateSpreadSelection() {
     if (newSpread !== selectedSpread) {
         selectedSpread = newSpread;
         
-        // Update URL to reflect new spread
+        // Batch URL updates
         const currentUrl = new URL(window.location.href);
         const apiUrlObj = new URL(apiUrl);
         apiUrlObj.searchParams.set('spread', selectedSpread);
         currentUrl.searchParams.set('api_url', apiUrlObj.toString());
         
-        // Update browser URL without reload
         window.history.replaceState({}, '', currentUrl.toString());
-        
-        // Update displayed info
         updateOutcomeInfo();
         
-        // Re-fetch data with new spread
-        fetchAndDisplayData();
+        // Debounced data fetch
+        debouncedFetchData();
     }
 }
 
-// Update outcome info display
+// Debounced fetch function
+const debouncedFetchData = debounce(fetchAndDisplayData, 300);
+
 function updateOutcomeInfo() {
-    if (apiUrl) {
-        const url = new URL(apiUrl);
-        const outcomeId = url.searchParams.get('outcome_id');
-        const isLive = url.searchParams.get('live');
-        
-        let outcomeInfo = `<strong>Outcome ID:</strong> ${outcomeId}<br>`;
-        outcomeInfo += `<strong>Type:</strong> ${isLive === 'true' ? 'LIVE' : 'Pre-match'}<br>`;
-        if (selectedSpread) {
-            outcomeInfo += `<strong>Current Spread:</strong> ${selectedSpread}`;
-        }
-        
-        document.getElementById('outcomeInfo').innerHTML = outcomeInfo;
-    }
+    if (!apiUrl) return;
+    
+    const url = new URL(apiUrl);
+    const outcomeId = url.searchParams.get('outcome_id');
+    const isLive = url.searchParams.get('live');
+    
+    const outcomeInfo = [
+        `<strong>Outcome ID:</strong> ${outcomeId}`,
+        `<strong>Type:</strong> ${isLive === 'true' ? 'LIVE' : 'Pre-match'}`,
+        selectedSpread ? `<strong>Current Spread:</strong> ${selectedSpread}` : null
+    ].filter(Boolean).join('<br>');
+    
+    document.getElementById('outcomeInfo').innerHTML = outcomeInfo;
 }
 
-// Extract available spreads from odds data
+// Optimized spread extraction using Set
 function extractAvailableSpreads(oddsData) {
     const spreads = new Set();
     
-    // Look through all bookmakers and all entries to find unique spreads
-    for (const bookmaker in oddsData) {
-        for (const entry of oddsData[bookmaker]) {
-            if (entry.length >= 2 && entry[1] !== null && entry[1] !== undefined) {
+    for (const odds of Object.values(oddsData)) {
+        for (const entry of odds) {
+            if (entry.length >= 2 && entry[1] != null) {
                 spreads.add(entry[1].toString());
             }
         }
@@ -310,47 +337,49 @@ function extractAvailableSpreads(oddsData) {
     return Array.from(spreads);
 }
 
-// Filter odds data by selected spread
+// Optimized spread filtering
 function filterOddsBySpread(oddsData, spread) {
     if (!spread) return oddsData;
     
-    const filteredData = {};
     const spreadFloat = parseFloat(spread);
+    const filteredData = {};
     
-    for (const bookmaker in oddsData) {
-        filteredData[bookmaker] = oddsData[bookmaker].filter(entry => {
-            return entry.length >= 2 && parseFloat(entry[1]) === spreadFloat;
-        });
+    for (const [bookmaker, odds] of Object.entries(oddsData)) {
+        filteredData[bookmaker] = odds.filter(entry => 
+            entry.length >= 2 && parseFloat(entry[1]) === spreadFloat
+        );
     }
     
     return filteredData;
 }
 
-// Optimized data filtering with early exit
+// More efficient data filtering
 function filterDataByInterval(data, interval) {
-    if (interval === 1) return data;
+    if (interval === 1 || data.length <= 2) return data;
     
-    const filtered = [];
+    const filtered = [data[0]]; // Always include first
     const lastIndex = data.length - 1;
     
-    for (let i = 0; i < data.length; i++) {
-        // Always include first and last points
-        if (i === 0 || i === lastIndex || i % interval === 0) {
-            filtered.push(data[i]);
-        }
+    for (let i = interval; i < lastIndex; i += interval) {
+        filtered.push(data[i]);
     }
     
+    filtered.push(data[lastIndex]); // Always include last
     return filtered;
 }
 
-// Update data interval
+// Optimized data interval update
 function updateDataInterval() {
     const select = document.getElementById('dataInterval');
-    dataInterval = parseInt(select.value);
+    const newInterval = parseInt(select.value);
     
-    // Re-render chart with cached data if available
-    if (oddsCache?.body?.odds) {
-        updateChart(oddsCache);
+    if (newInterval !== dataInterval) {
+        dataInterval = newInterval;
+        
+        if (oddsCache?.body?.odds) {
+            // Use requestAnimationFrame for smooth updates
+            requestAnimationFrame(() => updateChart(oddsCache));
+        }
     }
 }
 
@@ -359,150 +388,108 @@ function updateStatus(message, type = 'loading') {
     statusEl.textContent = message;
 }
 
+// Optimized fetch function with better error handling
 async function fetchAndDisplayData() {
     const fetchButton = document.getElementById('clearBtn');
     if (fetchButton) fetchButton.disabled = true;
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
     try {
         const statusEl = document.getElementById('status');
-        statusEl.textContent = 'Making first API call (live=false)...';
+        statusEl.textContent = 'Fetching data...';
         
-        // Calculate time range (6 hours before current time to current time)
-        const currentTime = new Date();
-        const sixHoursAgo = new Date(currentTime.getTime() - (6 * 60 * 60 * 1000));
-
-        // Convert to Unix timestamps in milliseconds
-        const fromTime = sixHoursAgo.getTime();
-        const toTime = currentTime.getTime();
-
-        // Construct the first URL with proper time range and spread
-        const baseUrl = apiUrl.split('?')[0]; // Get base URL without query params
-        const urlParams = new URLSearchParams(apiUrl.split('?')[1]); // Get existing params
+        const currentTime = Date.now();
+        const sixHoursAgo = currentTime - (6 * 60 * 60 * 1000);
+        
+        const baseUrl = apiUrl.split('?')[0];
+        const urlParams = new URLSearchParams(apiUrl.split('?')[1]);
+        
+        // First call
         urlParams.set('live', 'false');
-        urlParams.set('from', fromTime.toString());
-        urlParams.set('to', toTime.toString());
+        urlParams.set('from', sixHoursAgo.toString());
+        urlParams.set('to', currentTime.toString());
         
-        // Add spread parameter if selected
         if (selectedSpread) {
             urlParams.set('spread', selectedSpread);
         }
         
         const firstUrl = `${baseUrl}?${urlParams.toString()}`;
         
-        const firstResponse = await fetch(firstUrl);
-        const firstData = await firstResponse.json();
+        const [firstResponse, secondResponse] = await Promise.all([
+            fetch(firstUrl, { signal: controller.signal }),
+            // Prepare second call parameters
+            (async () => {
+                const response = await fetch(firstUrl, { signal: controller.signal });
+                const data = await response.json();
+                
+                // Find closest time more efficiently
+                let closestTime = currentTime;
+                let minDiff = Infinity;
+                
+                const filteredData = selectedSpread ? 
+                    filterOddsBySpread(data.body?.odds || {}, selectedSpread) : 
+                    data.body?.odds || {};
+                
+                for (const odds of Object.values(filteredData)) {
+                    for (const entry of odds) {
+                        const diff = Math.abs(new Date(entry[0]).getTime() - currentTime);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            closestTime = new Date(entry[0]).getTime();
+                        }
+                    }
+                }
+                
+                // Second call with optimized parameters
+                const secondUrlParams = new URLSearchParams(urlParams);
+                secondUrlParams.set('live', 'true');
+                secondUrlParams.set('from', (Math.floor(closestTime / 1000) + 300).toString() + '000');
+                
+                return fetch(`${baseUrl}?${secondUrlParams.toString()}`, { signal: controller.signal });
+            })()
+        ]);
         
-        // Extract available spreads from first call if we don't have a selected spread
-        if (!selectedSpread && firstData.body?.odds) {
-            availableSpreads = extractAvailableSpreads(firstData.body.odds);
+        clearTimeout(timeoutId);
+        
+        const [firstData, secondData] = await Promise.all([
+            firstResponse.json(),
+            secondResponse.json()
+        ]);
+        
+        // Process data more efficiently
+        const processedData = combineAndProcessData(firstData, secondData);
+        
+        // Update spreads if needed
+        if (!selectedSpread && processedData.odds) {
+            availableSpreads = extractAvailableSpreads(processedData.odds);
             if (availableSpreads.length > 0) {
-                // Set default spread to first available
                 selectedSpread = availableSpreads[0];
                 createSpreadSelector(availableSpreads);
                 updateOutcomeInfo();
-                
-                // Update URL with selected spread and restart fetch
-                const apiUrlObj = new URL(apiUrl);
-                apiUrlObj.searchParams.set('spread', selectedSpread);
-                urlParams.set('spread', selectedSpread);
-                apiUrl = apiUrlObj.toString();
-                document.getElementById('apiUrl').textContent = apiUrl;
             }
         }
         
-        statusEl.textContent = 'Finding closest time to current time...';
-        let closestTime = null;
-        let minDiff = Infinity;
-
-        // Filter data by selected spread first
-        const filteredFirstData = selectedSpread ? 
-            filterOddsBySpread(firstData.body?.odds || {}, selectedSpread) : 
-            firstData.body?.odds || {};
-
-        // Optimized search for closest time
-        for (const [sportsbook, odds] of Object.entries(filteredFirstData)) {
-            for (const entry of odds) {
-                const entryTime = new Date(entry[0]);
-                const diff = Math.abs(entryTime - currentTime);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    closestTime = entryTime;
-                }
-            }
-        }
-
-        // If no data found, use current time
-        if (!closestTime) {
-            closestTime = currentTime;
-        }
+        oddsCache = { body: processedData };
         
-        // Convert to Unix timestamp and add 5 minutes
-        const unixTime = Math.floor(closestTime.getTime() / 1000);
-        const unixTimePlus5Min = unixTime + (5 * 60);
-        const unixTimeMillisPlus5Min = unixTimePlus5Min * 1000;
-        
-        statusEl.textContent = 'Making second API call (live=true) with adjusted time...';
-        
-        // Second API call with live=true and adjusted time
-        const secondUrlParams = new URLSearchParams(firstUrl.split('?')[1]);
-        secondUrlParams.set('live', 'true');
-        secondUrlParams.set('from', unixTimeMillisPlus5Min.toString());
-        const secondUrl = `${baseUrl}?${secondUrlParams.toString()}`;
-        
-        const secondResponse = await fetch(secondUrl);
-        const secondData = await secondResponse.json();
-        
-        statusEl.textContent = 'Combining and processing data...';
-        
-        // Filter second data by spread as well
-        const filteredSecondData = selectedSpread ? 
-            filterOddsBySpread(secondData.body?.odds || {}, selectedSpread) : 
-            secondData.body?.odds || {};
-        
-        // Optimized data combination
-        const combinedData = {};
-        
-        // Add data from first call
-        for (const [sportsbook, odds] of Object.entries(filteredFirstData)) {
-            combinedData[sportsbook] = [...odds];
-        }
-        
-        // Add data from second call
-        for (const [sportsbook, odds] of Object.entries(filteredSecondData)) {
-            if (!combinedData[sportsbook]) {
-                combinedData[sportsbook] = [];
-            }
-            combinedData[sportsbook].push(...odds);
-        }
-        
-        // Sort each sportsbook's data by time (optimize with a single sort)
-        for (const sportsbook in combinedData) {
-            combinedData[sportsbook].sort((a, b) => new Date(a[0]) - new Date(b[0]));
-        }
-        
-        // Cache the combined data
-        oddsCache = { body: { odds: combinedData } };
-        
-        // Create spread selector if we have multiple spreads available
-        if (availableSpreads.length === 0) {
-            availableSpreads = extractAvailableSpreads(combinedData);
-            if (availableSpreads.length > 1) {
-                createSpreadSelector(availableSpreads);
-            }
-        }
-        
-        updateChart(oddsCache);
-        updateSummary(oddsCache);
-        
-        // Show chart container and hide loading
-        document.getElementById('chartContainer').style.display = 'block';
-        document.getElementById('loadingDiv').style.display = 'none';
-        
-        statusEl.textContent = `Data loaded successfully${selectedSpread ? ' for spread ' + selectedSpread : ''}`;
+        // Batch DOM updates
+        requestAnimationFrame(() => {
+            updateChart(oddsCache);
+            updateSummary(oddsCache);
+            
+            document.getElementById('chartContainer').style.display = 'block';
+            document.getElementById('loadingDiv').style.display = 'none';
+            
+            statusEl.textContent = `Data loaded${selectedSpread ? ' (spread: ' + selectedSpread + ')' : ''}`;
+        });
         
     } catch (error) {
+        clearTimeout(timeoutId);
         console.error('Error fetching data:', error);
-        document.getElementById('error').textContent = `❌ Error: ${error.message}`;
+        
+        const errorMsg = error.name === 'AbortError' ? 'Request timed out' : error.message;
+        document.getElementById('error').textContent = `❌ Error: ${errorMsg}`;
         document.getElementById('error').style.display = 'block';
         document.getElementById('loadingDiv').style.display = 'none';
     } finally {
@@ -510,139 +497,138 @@ async function fetchAndDisplayData() {
     }
 }
 
-// Optimized chart update with better memory management
-function updateChart(data) {
-    if (!data.body?.odds) {
-        console.error('Unexpected data format:', data);
-        return;
+// Optimized data combination
+function combineAndProcessData(firstData, secondData) {
+    const filteredFirst = selectedSpread ? 
+        filterOddsBySpread(firstData.body?.odds || {}, selectedSpread) : 
+        firstData.body?.odds || {};
+    
+    const filteredSecond = selectedSpread ? 
+        filterOddsBySpread(secondData.body?.odds || {}, selectedSpread) : 
+        secondData.body?.odds || {};
+    
+    const combined = {};
+    
+    // Combine data sets
+    for (const [bookmaker, odds] of Object.entries(filteredFirst)) {
+        combined[bookmaker] = [...odds];
     }
+    
+    for (const [bookmaker, odds] of Object.entries(filteredSecond)) {
+        if (!combined[bookmaker]) {
+            combined[bookmaker] = [];
+        }
+        combined[bookmaker].push(...odds);
+    }
+    
+    // Sort once per bookmaker
+    for (const bookmaker in combined) {
+        combined[bookmaker].sort((a, b) => new Date(a[0]) - new Date(b[0]));
+    }
+    
+    return { odds: combined };
+}
+
+// Heavily optimized chart update
+function updateChart(data) {
+    if (!data.body?.odds) return;
     
     const odds = data.body.odds;
     const bookmakers = Object.keys(odds);
     
     if (bookmakers.length === 0) return;
     
-    // Colors for different bookmakers
-    const colors = [
-        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
-        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
-    ];
-    
-    // Pre-allocate arrays and use Set for better performance
-    const allTimePoints = new Set();
-    let totalOriginalPoints = 0;
-    
-    // Filter data by interval for each bookmaker
+    // Pre-calculate filtered data
     const filteredOdds = {};
+    const timePointsSet = new Set();
+    let maxPoints = 0;
+    
     for (const bookmaker of bookmakers) {
         const originalData = odds[bookmaker];
-        totalOriginalPoints = Math.max(totalOriginalPoints, originalData.length);
+        maxPoints = Math.max(maxPoints, originalData.length);
         
         filteredOdds[bookmaker] = filterDataByInterval(originalData, dataInterval);
         
-        // Add time points to set
+        // Collect time points
         for (const entry of filteredOdds[bookmaker]) {
-            allTimePoints.add(entry[0]);
+            timePointsSet.add(entry[0]);
         }
     }
     
-    // Convert Set to Array and sort once
-    const sortedTimePoints = Array.from(allTimePoints).sort();
+    const sortedTimePoints = Array.from(timePointsSet).sort();
     
-    // Update data info
+    // Update info efficiently
     const dataInfoEl = document.getElementById('dataInfo');
+    const suffix = dataInterval === 1 ? '' : getOrdinalSuffix(dataInterval);
     dataInfoEl.innerHTML = `
-        <strong>Data Points:</strong> Showing ${sortedTimePoints.length} out of ${totalOriginalPoints} total points 
-        (every ${dataInterval === 1 ? '' : dataInterval + getOrdinalSuffix(dataInterval) + ' '}point${dataInterval === 1 ? '' : ', plus first and last'})
-        ${selectedSpread ? `<br><strong>Spread Filter:</strong> ${selectedSpread}` : ''}
+        <strong>Data Points:</strong> ${sortedTimePoints.length}/${maxPoints} 
+        (every ${dataInterval === 1 ? '' : dataInterval + suffix + ' '}point)
+        ${selectedSpread ? `<br><strong>Spread:</strong> ${selectedSpread}` : ''}
     `;
     
-    // Create labels (formatted time) - cache date objects
-    const labels = sortedTimePoints.map(timestamp => {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString();
-    });
+    // Create labels once
+    const labels = sortedTimePoints.map(timestamp => 
+        new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    );
     
-    // Create datasets for each bookmaker
-    const datasets = [];
-    for (let i = 0; i < bookmakers.length; i++) {
-        const bookmaker = bookmakers[i];
-        const bookmakerData = filteredOdds[bookmaker];
-        
-        // Create lookup map for faster data access
+    // Create datasets with pre-allocated arrays
+    const datasets = bookmakers.map((bookmaker, i) => {
         const dataMap = new Map();
-        for (const entry of bookmakerData) {
-            dataMap.set(entry[0], entry[2]); // entry[2] is the American odds
-        }
+        filteredOdds[bookmaker].forEach(entry => {
+            dataMap.set(entry[0], entry[2]);
+        });
         
-        // Create data array aligned with time points
-        const dataPoints = sortedTimePoints.map(timestamp => 
-            dataMap.get(timestamp) || null
-        );
-        
-        datasets.push({
+        return {
             label: bookmaker,
-            data: dataPoints,
-            borderColor: colors[i % colors.length],
-            backgroundColor: colors[i % colors.length] + '20',
+            data: sortedTimePoints.map(timestamp => dataMap.get(timestamp) || null),
+            borderColor: COLORS[i % COLORS.length],
+            backgroundColor: COLORS[i % COLORS.length] + '20',
             fill: false,
             tension: 0,
-            pointRadius: dataInterval === 1 ? 1 : 2,
-            pointHoverRadius: dataInterval === 1 ? 3 : 4,
-            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 2,
+            borderWidth: 1.5,
             spanGaps: true
-        });
-    }
+        };
+    });
     
-    // Update chart data efficiently
+    // Update chart data in single operation
     chart.data.labels = labels;
     chart.data.datasets = datasets;
-    chart.update('none'); // Skip animation for better performance
+    chart.update('none');
     
-    // Update fair odds display
+    // Update fair odds
     updateFairOddsDisplay(odds, sortedTimePoints);
 }
 
-// Helper function to get ordinal suffix
+// Optimized helper functions
 function getOrdinalSuffix(num) {
-    const lastDigit = num % 10;
-    const lastTwoDigits = num % 100;
-    
-    if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
-        return 'th';
-    }
-    
-    switch (lastDigit) {
-        case 1: return 'st';
-        case 2: return 'nd';
-        case 3: return 'rd';
-        default: return 'th';
-    }
+    const suffixes = ['th', 'st', 'nd', 'rd'];
+    const v = num % 100;
+    return suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0];
 }
 
-// Update fair odds display
 function updateFairOddsDisplay(odds, timePoints) {
     if (timePoints.length === 0) return;
     
     const latestTime = timePoints[timePoints.length - 1];
-    const oddsAtLatestTime = [];
+    const validOdds = [];
     
-    for (const bookmaker of Object.keys(odds)) {
-        const entry = odds[bookmaker].find(item => item[0] === latestTime);
-        if (entry && entry[2] !== null && entry[2] !== undefined) {
-            oddsAtLatestTime.push(entry[2]);
+    for (const bookmakerOdds of Object.values(odds)) {
+        const entry = bookmakerOdds.find(item => item[0] === latestTime);
+        if (entry && entry[2] != null) {
+            validOdds.push(entry[2]);
         }
     }
     
-    if (oddsAtLatestTime.length > 0) {
-        const fairOdds = Math.round(oddsAtLatestTime.reduce((a, b) => a + b, 0) / oddsAtLatestTime.length);
-        document.getElementById('fairOddsValue').textContent = fairOdds;
-    } else {
-        document.getElementById('fairOddsValue').textContent = 'N/A';
-    }
+    const fairOddsValue = validOdds.length > 0 ? 
+        Math.round(validOdds.reduce((a, b) => a + b, 0) / validOdds.length) : 
+        'N/A';
+    
+    document.getElementById('fairOddsValue').textContent = fairOddsValue;
 }
 
-// Optimized summary update
+// Optimized summary update with minimal DOM manipulation
 function updateSummary(data) {
     const summaryEl = document.getElementById('summary');
     
@@ -659,74 +645,54 @@ function updateSummary(data) {
         return;
     }
     
-    // Pre-allocate arrays
     const summaryCards = [];
-    let fairLineStarting = 0;
-    let fairLineCurrent = 0;
+    let fairStarting = 0;
+    let fairCurrent = 0;
     let validBookmakers = 0;
     
     for (const bookmaker of bookmakers) {
-        const bookmakerData = odds[bookmaker];
+        const data = odds[bookmaker];
+        if (data.length === 0) continue;
         
-        if (bookmakerData.length === 0) continue;
+        const starting = data[0][2];
+        const current = data[data.length - 1][2];
+        const change = current - starting;
         
-        const startingOdds = bookmakerData[0][2];
-        const currentOdds = bookmakerData[bookmakerData.length - 1][2];
-        const change = currentOdds - startingOdds;
-        
-        // Add to fair line calculation
-        fairLineStarting += startingOdds;
-        fairLineCurrent += currentOdds;
+        fairStarting += starting;
+        fairCurrent += current;
         validBookmakers++;
         
-        let changeClass = 'odds-neutral';
-        let changeText = 'No change';
-        
-        if (change > 0) {
-            changeClass = 'odds-up';
-            changeText = `+${change}`;
-        } else if (change < 0) {
-            changeClass = 'odds-down';
-            changeText = `${change}`;
-        }
+        const changeClass = change > 0 ? 'odds-up' : change < 0 ? 'odds-down' : 'odds-neutral';
+        const changeText = change === 0 ? 'No change' : (change > 0 ? '+' : '') + change;
         
         summaryCards.push(`
             <div class="summary-card">
                 <h3>${bookmaker}</h3>
-                <p><strong>Starting Odds:</strong> ${startingOdds}</p>
-                <p><strong>Current Odds:</strong> ${currentOdds} 
+                <p><strong>Starting:</strong> ${starting}</p>
+                <p><strong>Current:</strong> ${current} 
                    <span class="odds-change ${changeClass}">${changeText}</span></p>
-                <p><strong>Total Data Points:</strong> ${bookmakerData.length}</p>
+                <p><strong>Points:</strong> ${data.length}</p>
                 ${selectedSpread ? `<p><strong>Spread:</strong> ${selectedSpread}</p>` : ''}
             </div>
         `);
     }
     
-    // Add fair line summary
+    // Add fair line card
     if (validBookmakers > 0) {
-        const fairStarting = Math.round(fairLineStarting / validBookmakers);
-        const fairCurrent = Math.round(fairLineCurrent / validBookmakers);
-        const fairChange = fairCurrent - fairStarting;
+        const fairStart = Math.round(fairStarting / validBookmakers);
+        const fairEnd = Math.round(fairCurrent / validBookmakers);
+        const fairChange = fairEnd - fairStart;
         
-        let fairChangeClass = 'odds-neutral';
-        let fairChangeText = 'No change';
-        
-        if (fairChange > 0) {
-            fairChangeClass = 'odds-up';
-            fairChangeText = `+${fairChange}`;
-        } else if (fairChange < 0) {
-            fairChangeClass = 'odds-down';
-            fairChangeText = `${fairChange}`;
-        }
+        const changeClass = fairChange > 0 ? 'odds-up' : fairChange < 0 ? 'odds-down' : 'odds-neutral';
+        const changeText = fairChange === 0 ? 'No change' : (fairChange > 0 ? '+' : '') + fairChange;
         
         summaryCards.push(`
             <div class="summary-card" style="border-left: 3px solid #FF8C00;">
-                <h3>Fair Line (Average)</h3>
-                <p><strong>Starting Odds:</strong> ${fairStarting}</p>
-                <p><strong>Current Odds:</strong> ${fairCurrent} 
-                   <span class="odds-change ${fairChangeClass}">${fairChangeText}</span></p>
-                <p><strong>Based on:</strong> ${validBookmakers} bookmakers</p>
-                ${selectedSpread ? `<p><strong>Spread:</strong> ${selectedSpread}</p>` : ''}
+                <h3>Fair Line</h3>
+                <p><strong>Starting:</strong> ${fairStart}</p>
+                <p><strong>Current:</strong> ${fairEnd} 
+                   <span class="odds-change ${changeClass}">${changeText}</span></p>
+                <p><strong>Based on:</strong> ${validBookmakers} books</p>
             </div>
         `);
     }
@@ -734,7 +700,7 @@ function updateSummary(data) {
     summaryEl.innerHTML = summaryCards.join('');
 }
 
-// Clear cache
+// Optimized cache clear
 function clearCache() {
     oddsCache = {};
     if (chart) {
@@ -742,32 +708,32 @@ function clearCache() {
         chart.data.datasets = [];
         chart.update('none');
     }
-    document.getElementById('summary').innerHTML = '';
-    document.getElementById('status').textContent = 'Cache cleared';
-    document.getElementById('dataInfo').innerHTML = '<strong>Data Points:</strong> No data loaded.';
-    document.getElementById('fairOddsValue').textContent = 'N/A';
-}
-
-// Helper function to convert American odds to decimal
-function americanOddsToDecimal(americanOdds) {
-    if (americanOdds === 0) return 'N/A';
-    if (americanOdds > 0) {
-        return (americanOdds / 100 + 1).toFixed(2);
-    } else {
-        return (100 / Math.abs(americanOdds) + 1).toFixed(2);
-    }
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    initChart();
     
-    if (!apiUrl) {
-        document.getElementById('status').textContent = 'No API URL provided';
-        document.getElementById('loadingDiv').style.display = 'none';
+    // Batch DOM updates
+    requestAnimationFrame(() => {
+        document.getElementById('summary').innerHTML = '';
+        document.getElementById('status').textContent = 'Cache cleared';
+        document.getElementById('dataInfo').innerHTML = '<strong>Data Points:</strong> No data loaded.';
+        document.getElementById('fairOddsValue').textContent = 'N/A';
+    });
+}
+
+// Initialize with error handling
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        initChart();
+        
+        if (!apiUrl) {
+            document.getElementById('status').textContent = 'No API URL provided';
+            document.getElementById('loadingDiv').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = 'No API URL provided.';
+        } else {
+            fetchAndDisplayData();
+        }
+    } catch (error) {
+        console.error('Initialization error:', error);
+        document.getElementById('error').textContent = `Initialization error: ${error.message}`;
         document.getElementById('error').style.display = 'block';
-        document.getElementById('error').textContent = 'No API URL provided. Please check the link and try again.';
-    } else {
-        fetchAndDisplayData();
     }
 });

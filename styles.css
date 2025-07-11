@@ -32,7 +32,560 @@ body {
     overflow: hidden;
     border-bottom: 1px solid rgba(0, 212, 255, 0.2);
 }
+/* ===== ARBITRAGE ANALYSIS STYLES ===== */
 
+/* Arbitrage Desktop Table Styles */
+.arbitrage-row {
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.arbitrage-row.profit {
+    background-color: rgba(34, 197, 94, 0.1);
+    border-left-color: #22c55e;
+}
+
+.arbitrage-row.loss {
+    background-color: rgba(239, 68, 68, 0.1);
+    border-left-color: #ef4444;
+}
+
+.arbitrage-row:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    transform: translateX(2px);
+}
+
+.arbitrage-header {
+    padding: 20px !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border-radius: 8px;
+    margin: 4px 0;
+}
+
+.arbitrage-row.profit .arbitrage-header {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.arbitrage-row.loss .arbitrage-header {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+}
+
+.arb-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.arb-game {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.arb-game strong {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.arb-market {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1e40af;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.arb-spread {
+    background: rgba(156, 163, 175, 0.2);
+    color: #374151;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.live-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.live-indicator.live {
+    background: #ef4444;
+    animation: pulse 2s infinite;
+}
+
+.live-indicator.prematch {
+    background: #94a3b8;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.arb-status {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.arb-status.profit {
+    background: #22c55e;
+    color: rgb(0, 0, 0);
+}
+
+.arb-status.loss {
+    background: #ef4444;
+    color: white;
+}
+
+.arb-profit {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: #1e293b;
+}
+
+.arb-profit strong {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.arbitrage-row.profit .arb-profit strong {
+    color: #16a34a;
+}
+
+.arbitrage-row.loss .arb-profit strong {
+    color: #dc2626;
+}
+
+.arb-guaranteed {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.arb-guaranteed.profit {
+    background: rgba(34, 197, 94, 0.1);
+    color: #16a34a;
+}
+
+.arb-guaranteed.loss {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.arb-details {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.arb-bet {
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    min-width: 250px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.arb-bet:hover {
+    border-color: #3b82f6;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.arb-book {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    background: rgba(59, 130, 246, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    width: fit-content;
+}
+
+.arb-outcome {
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.arb-odds {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    background: rgba(34, 197, 94, 0.1);
+    padding: 8px 12px;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.arb-stake {
+    font-size: 14px;
+    font-weight: 600;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.1);
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+.arb-payout {
+    font-size: 14px;
+    font-weight: 600;
+    color: #059669;
+    background: rgba(5, 150, 105, 0.1);
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+/* ===== ARBITRAGE MOBILE CARD STYLES ===== */
+
+.arbitrage-card {
+    background: rgb(0, 0, 0);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.arbitrage-card.profit {
+    border-left-color: #22c55e;
+    background: linear-gradient(135deg, #000000 0%, #000000 100%);
+}
+
+.arbitrage-card.loss {
+    border-left-color: #ef4444;
+    background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+}
+
+.arbitrage-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.arb-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.arb-game-info {
+    flex: 1;
+}
+
+.arb-game-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.arb-market-name {
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.arb-spread-info {
+    font-size: 12px;
+    color: #94a3b8;
+    background: rgba(156, 163, 175, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.arb-profit-info {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+}
+
+.arb-profit-percent {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.arb-profit-percent.profit {
+    color: #16a34a;
+}
+
+.arb-profit-percent.loss {
+    color: #dc2626;
+}
+
+.arb-guaranteed-profit {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.arb-guaranteed-profit.profit {
+    background: rgba(34, 197, 94, 0.1);
+    color: #16a34a;
+}
+
+.arb-guaranteed-profit.loss {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.arb-status.live {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.arb-status.pre {
+    background: rgba(148, 163, 184, 0.1);
+    color: #64748b;
+}
+
+.arb-type {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.arb-type.profit {
+    background: #202636;
+    color: rgb(0, 0, 0);
+}
+
+.arb-type.loss {
+    background: #ef4444;
+    color: white;
+}
+
+.arb-bets {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.arb-bet-card {
+    background: rgba#202636;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.3s ease;
+}
+
+.arb-bet-card:hover {
+    border-color: #3b82f6;
+    background: white;
+}
+
+.arb-bet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.arb-book-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    background: rgba(59, 130, 246, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.arb-outcome-type {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.arb-bet-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.arb-odds-display {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    background: rgba(34, 197, 94, 0.1);
+    padding: 8px 12px;
+    border-radius: 6px;
+}
+
+.arb-stake-amount {
+    font-size: 14px;
+    font-weight: 600;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.1);
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+.arb-payout-amount {
+    font-size: 14px;
+    font-weight: 600;
+    color: #059669;
+    background: rgba(5, 150, 105, 0.1);
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+/* ===== NO DATA STATES ===== */
+
+.no-data-card {
+    background: rgb(12, 12, 12);
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    color: #64748b;
+    font-size: 16px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.no-data {
+    text-align: center;
+    padding: 40px 20px;
+    color: #64748b;
+    font-size: 16px;
+    font-weight: 500;
+    font-style: italic;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+@media (max-width: 768px) {
+    .arb-summary {
+        flex-direction: column;
+        gap: 16px;
+        align-items: flex-start;
+    }
+    
+    .arb-game {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .arb-profit {
+        text-align: left;
+        align-items: flex-start;
+    }
+    
+    .arb-details {
+        flex-direction: column;
+    }
+    
+    .arb-bet {
+        min-width: unset;
+    }
+    
+    .arb-card-header {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
+    
+    .arb-profit-info {
+        align-items: flex-start;
+        text-align: left;
+    }
+    
+    .arb-bet-details {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* ===== ENHANCED ANIMATIONS ===== */
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.arbitrage-card,
+.arbitrage-row {
+    animation: slideIn 0.5s ease-out;
+}
+
+.arbitrage-card:nth-child(even) {
+    animation-delay: 0.1s;
+}
+
+.arbitrage-card:nth-child(3n) {
+    animation-delay: 0.2s;
+}
+
+/* ===== UTILITY CLASSES ===== */
+
+.text-profit {
+    color: #16a34a !important;
+}
+
+.text-loss {
+    color: #dc2626 !important;
+}
+
+.bg-profit {
+    background-color: rgba(34, 197, 94, 0.1) !important;
+}
+
+.bg-loss {
+    background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+.border-profit {
+    border-color: #22c55e !important;
+}
+
+.border-loss {
+    border-color: #ef4444 !important;
+}
 .header::before {
     content: '';
     position: absolute;
